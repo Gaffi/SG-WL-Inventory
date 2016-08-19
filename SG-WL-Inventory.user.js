@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         Whitelist Game Ownership Checker
-// namespace     
+// @name         SteamGifts Whitelist Inventory
+// @namespace    http://www.steamgifts.com
 // @version      0.01
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props ti Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
