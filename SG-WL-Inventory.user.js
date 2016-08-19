@@ -135,7 +135,7 @@ function checkHasGame(row, appID, apiKey) {
 }
 
 function injectMessage(elem, hasGame) {
-    var message = document.createElement("div");
+    var message = getStatusDiv(elem);
 	if (hasGame) {
 		message.style.color = "red";
 		message.innerHTML = "Has game!";
@@ -144,6 +144,17 @@ function injectMessage(elem, hasGame) {
 		message.innerHTML = "Does not have game!";
 	}
     elem.insertBefore(message, elem.children[2]);
+}
+
+function getStatusDiv(elem) {
+	var statusDiv = elem.getElementsByClassName('WL_Inv_Status');
+	if (statusDiv.length > 0) {
+		return statusDiv[0];
+	} else {
+		var message = document.createElement("div");
+		message.className = 'WL_Inv_Status';
+		return message;
+	}
 }
 
 function getRows() {
