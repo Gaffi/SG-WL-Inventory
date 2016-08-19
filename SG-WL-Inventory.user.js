@@ -5,7 +5,7 @@
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon          
-// @downloadURL  https://raw.githubusercontent.com/Gaffi/SG-WL-Inventory/master/SG-WL-Inventory.user.js
+// @downloadURL  https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.user.js
 // @supportURL   https://github.com/Gaffi/SG-WL-Inventory
 // @match        https://www.steamgifts.com/account/manage/whitelist*
 // @grant        GM_xmlhttpRequest
