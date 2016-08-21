@@ -6,6 +6,7 @@
 // @author       Gaffi
 // icon          
 // @downloadURL  https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.user.js
+// @supportURL   https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
 // @supportURL   https://github.com/Gaffi/SG-WL-Inventory
 // @match        https://www.steamgifts.com/account/manage/whitelist*
 // @grant        GM_xmlhttpRequest
