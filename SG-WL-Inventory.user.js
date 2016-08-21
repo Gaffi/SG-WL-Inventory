@@ -18,20 +18,21 @@
 // @connect      store.steampowered.com
 // ==/UserScript==
 
+var apiKey = null;
 injectInterface();
 
 function injectInterface() {
 	var bFound = 0;
     var i=0;
     var refTarget;
-    while(bFound==0) {
+    while(bFound===0) {
         refTarget = document.getElementsByClassName('page__heading__breadcrumbs')[i];
-        if (refTarget.innerHTML.indexOf('<a href="/account">Account</a><i class="fa fa-angle-right"></i><a href="/account/manage/whitelist">Whitelist</a>')==0) {
+        if (refTarget.innerHTML.indexOf('<a href="/account">Account</a><i class="fa fa-angle-right"></i><a href="/account/manage/whitelist">Whitelist</a>')===0) {
             bFound = 1;
         } else i++;
-    };
+    }
 
-	 var scriptDiv = document.createElement("DIV");
+var scriptDiv = document.createElement("DIV");
     scriptDiv.id = "whitelist_ownership_checker";
     scriptDiv.className = 'form__submit-button';
     scriptDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game onwership";
@@ -40,37 +41,73 @@ function injectInterface() {
 }
 
 function checkWL() {
-	var apiKey = localStorage.getItem('APIKey');
-	var steamID64;
-	var rows = getRows();
-	var appInput = prompt("Please enter the Steam app ID", "271590");
-	if (appInput != null) {
-	var appID = appInput.split(',');
-		for (var i = 0; i < rows.length; i++) {
-			checkHasGame(rows[i], appID, apiKey);
+    checkAPIKey();
+    if (apiKey) {
+        var steamID64;
+        var rows = getRows();
+        var appInput = prompt("Please enter the Steam app ID", "271590");
+        if (appInput) {
+        var appID = appInput.split(','); // Right now, only works with single appID.
+        for (var i = 0; i < rows.length; i++) {
+                checkHasGame(rows[i], appID);
+            }
 		}
 	}
 }
 
-function importJSON(steamID, appids_filter, apiKey, row) {
-    var int_appids_filter = turnToIntArray(appids_filter);
-    var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + "}";
-    var jsonFile;
-    GM_xmlhttpRequest ({
-        method: "GET",
-        url: link,
-        timeout: 5000,
-        onload: function(response) {
-            jsonFile = JSON.parse(response.responseText);
-            if (jsonFile.response.game_count > 0) {
-				injectMessage(row, true);
-				//console.log('Has game');
-            } else {
-				injectMessage(row, false);
-				//console.log('Does not have game');
-			}
-        },
-    });
+function checkAPIKey() {
+	apiKey = localStorage.getItem('APIKey');
+    if(!apiKey) {
+        apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:", "");
+        if(apiKey) {
+            localStorage.setItem('APIKey', apiKey);
+        }
+    }
+}
+
+
+function importJSON(steamID, appids_filter, row) {
+    'use strict';
+    if (apiKey) {
+        var int_appids_filter = turnToIntArray(appids_filter);
+        var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + "}";
+        var jsonFile;
+        GM_xmlhttpRequest ({
+            method: "GET",
+            url: link,
+            timeout: 5000,
+            onload: function(response) {
+                if (response){
+                    try{
+                        jsonFile = JSON.parse(response.responseText);
+                    }catch(e){
+                        var badAPIMsg = "Unexpected token < in JSON";
+                        if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
+                            // Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
+                            injectMessage(row, 2);
+                            localStorage.removeItem('APIKey');
+                            apiKey = null;
+                        } else {
+                            console.log(e.name + " -- " + e.message);
+                        }
+                    }
+                }
+                if (jsonFile) {
+                    if (jsonFile.response.game_count > 0) {
+                        injectMessage(row, 1);
+                        //console.log('Has game');
+                    } else {
+
+                        injectMessage(row, 0);
+                        //console.log('Does not have game');
+                    }
+                }
+            },
+        });
+    } else { injectMessage(row, 2);}
+
+
+
 }
 
 // Maybe will need this, maybe not.
@@ -116,7 +153,7 @@ function turnToIntArray(oldArray) {
 }
 
 
-function checkHasGame(row, appID, apiKey) {
+function checkHasGame(row, appID) {
     GM_xmlhttpRequest({
         method: "GET",
         url: row.children[1].children[0].href,
@@ -129,7 +166,7 @@ function checkHasGame(row, appID, apiKey) {
 			var searchString2 = '" data-tooltip=';
             var steamID = steamIDdivhtml.slice(steamIDdivhtml.indexOf(searchString1)+searchString1.length,steamIDdivhtml.indexOf(searchString2));
             if (steamID.length > 0) {
-				importJSON(steamID, appID, apiKey, row);
+                importJSON(steamID, appID, row);
             }
         }
     });
@@ -137,12 +174,20 @@ function checkHasGame(row, appID, apiKey) {
 
 function injectMessage(elem, hasGame) {
     var message = getStatusDiv(elem);
-	if (hasGame) {
-		message.style.color = "red";
-		message.innerHTML = "Has game!";
-	} else {
-		message.style.color = "green";
-		message.innerHTML = "Does not have game!";
+	switch (hasGame) {
+        case 0:
+            message.style.color = "green";
+            message.innerHTML = "Does not have game.";
+            break;
+        case 1:
+            message.style.color = "grey";
+            message.innerHTML = "Has game.";
+            break;
+        case 2:
+
+            message.style.color = "red";
+            message.innerHTML = "Bad API Key!";
+            break;
 	}
     elem.insertBefore(message, elem.children[2]);
 }
