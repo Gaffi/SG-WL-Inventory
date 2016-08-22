@@ -22,7 +22,7 @@ var apiKey = null;
 injectInterface();
 
 function injectInterface() {
-	var bFound = 0;
+	var bFound=0;
     var i=0;
     var refTarget;
     while(bFound===0) {
@@ -32,10 +32,12 @@ function injectInterface() {
         } else i++;
     }
 
+
+
 var scriptDiv = document.createElement("DIV");
     scriptDiv.id = "whitelist_ownership_checker";
     scriptDiv.className = 'form__submit-button';
-    scriptDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game onwership";
+    scriptDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
     refTarget.parentNode.appendChild(scriptDiv);
     document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
 }
