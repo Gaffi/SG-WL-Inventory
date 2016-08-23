@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Whitelist Inventory
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.01
+// @version      0.02
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon          
@@ -19,6 +19,10 @@
 // ==/UserScript==
 
 var apiKey = null;
+var appInput = null;
+var totalScanned = 0;
+var totalHave = 0;
+var lastPageScanned = 0;
 injectInterface();
 
 function injectInterface() {
@@ -32,8 +36,6 @@ function injectInterface() {
         } else i++;
     }
 
-
-
 var scriptDiv = document.createElement("DIV");
     scriptDiv.id = "whitelist_ownership_checker";
     scriptDiv.className = 'form__submit-button';
@@ -43,18 +45,17 @@ var scriptDiv = document.createElement("DIV");
 }
 
 function checkWL() {
-    checkAPIKey();
-    if (apiKey) {
-        var steamID64;
-        var rows = getRows();
-        var appInput = prompt("Please enter the Steam app ID", "271590");
-        if (appInput) {
-        var appID = appInput.split(','); // Right now, only works with single appID.
-        for (var i = 0; i < rows.length; i++) {
-                checkHasGame(rows[i], appID);
-            }
-		}
-	}
+	totalScanned = 0;
+	totalHave = 0;
+	appInput = prompt("Please enter the Steam app ID", "271590");
+	readAllPages("https://www.steamgifts.com/account/manage/whitelist/search?page=", 1);
+	//do while (!lastPageScanned) {
+		// Wait for all WL pages to be read/scanned.
+	//}
+	// Section above freezes forever (or too long for me to wait). Below will just wait 1.5 seconds per WL page and hope for the best for now.
+	setTimeout(function(){
+		alert("Out of " + totalScanned + " whitelisted users, " + totalHave + " have the game already, or " + Number((totalHave/totalScanned).toFixed(4))*100 + "%");
+	}, getLastPage(document) * 1500);
 }
 
 function checkAPIKey() {
@@ -93,17 +94,17 @@ function importJSON(steamID, appids_filter, row) {
                             console.log(e.name + " -- " + e.message);
                         }
                     }
-                }
-                if (jsonFile) {
-                    if (jsonFile.response.game_count > 0) {
-                        injectMessage(row, 1);
-                        //console.log('Has game');
-                    } else {
+					if (jsonFile) {
+						if (jsonFile.response.game_count > 0) {
+							injectMessage(row, 1);
+							//console.log('Has game');
+						} else {
 
-                        injectMessage(row, 0);
-                        //console.log('Does not have game');
-                    }
-                }
+							injectMessage(row, 0);
+							//console.log('Does not have game');
+						}
+					}
+				}
             },
         });
     } else { injectMessage(row, 2);}
@@ -154,8 +155,8 @@ function turnToIntArray(oldArray) {
     return newArray;
 }
 
-
 function checkHasGame(row, appID) {
+	//Add all page loading function call here:
     GM_xmlhttpRequest({
         method: "GET",
         url: row.children[1].children[0].href,
@@ -176,6 +177,7 @@ function checkHasGame(row, appID) {
 
 function injectMessage(elem, hasGame) {
     var message = getStatusDiv(elem);
+	totalScanned += 1;
 	switch (hasGame) {
         case 0:
             message.style.color = "green";
@@ -184,6 +186,7 @@ function injectMessage(elem, hasGame) {
         case 1:
             message.style.color = "grey";
             message.innerHTML = "Has game.";
+			totalHave +=1;
             break;
         case 2:
 
@@ -207,4 +210,44 @@ function getStatusDiv(elem) {
 
 function getRows() {
     return document.getElementsByClassName("table__row-inner-wrap");
+}
+
+function readAllPages(currentURL, currentPage) {
+	var newPage = parseInt(currentPage);
+	var checkURL = currentURL + newPage;
+	GM_xmlhttpRequest({
+		method: "GET",
+		url: checkURL,
+		onload: function(response) {
+			if (response){
+				var lastPage = getLastPage(document);
+				var lastURL = currentURL + lastPage;
+				console.log(lastPage + ' - ' + currentPage);
+				if (lastPage >= currentPage) {
+					checkAPIKey();
+					if (apiKey) {
+						var steamID64;
+						var rows = getRows();
+						if (appInput) {
+							var appID = appInput.split(','); // Right now, only works with single appID.
+							for (var i = 0; i < rows.length; i++) {
+								checkHasGame(rows[i], appID);
+							}
+						}
+					}
+					readAllPages(currentURL, newPage + 1);
+					console.log(lastURL + ' - ' + checkURL);
+				} else {
+					lastPageScanned = 1;
+				}
+			}
+		}
+	});
+}
+
+function getLastPage(curDocument) {
+	var searchURL = 'href="/account/manage/whitelist/search?page=';
+	var fullPageHTML = curDocument.getElementsByTagName("BODY")[0].innerHTML;
+	var linkPosition = fullPageHTML.lastIndexOf(searchURL) + searchURL.length;
+	return fullPageHTML.slice(linkPosition, fullPageHTML.indexOf('"',linkPosition-1));
 }
