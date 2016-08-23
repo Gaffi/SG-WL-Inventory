@@ -36,7 +36,7 @@ function injectInterface() {
         } else i++;
     }
 
-var scriptDiv = document.createElement("DIV");
+    var scriptDiv = document.createElement("DIV");
     scriptDiv.id = "whitelist_ownership_checker";
     scriptDiv.className = 'form__submit-button';
     scriptDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
@@ -48,14 +48,16 @@ function checkWL() {
 	totalScanned = 0;
 	totalHave = 0;
 	appInput = prompt("Please enter the Steam app ID", "271590");
-	readAllPages("https://www.steamgifts.com/account/manage/whitelist/search?page=", 1);
-	//do while (!lastPageScanned) {
-		// Wait for all WL pages to be read/scanned.
-	//}
-	// Section above freezes forever (or too long for me to wait). Below will just wait 1.5 seconds per WL page and hope for the best for now.
-	setTimeout(function(){
-		alert("Out of " + totalScanned + " whitelisted users, " + totalHave + " have the game already, or " + Number((totalHave/totalScanned).toFixed(4))*100 + "%");
-	}, getLastPage(document) * 1500);
+	if (appInput) {
+		readAllPages("https://www.steamgifts.com/account/manage/whitelist/search?page=", 1);
+		/*do while (!lastPageScanned) {
+			// Wait for all WL pages to be read/scanned.
+		}*/
+		// Section above freezes forever (or too long for me to wait). Below will just wait 1.25 seconds per WL page and hope for the best for now.
+		setTimeout(function(){
+			alert("Out of " + totalScanned + " whitelisted users, " + totalHave + " have the game already, or " + Number((100*totalHave/totalScanned).toFixed(2)) + "%");
+		}, getLastPage(document) * 1250);
+	}
 }
 
 function checkAPIKey() {
@@ -67,7 +69,6 @@ function checkAPIKey() {
         }
     }
 }
-
 
 function importJSON(steamID, appids_filter, row) {
     'use strict';
@@ -97,56 +98,19 @@ function importJSON(steamID, appids_filter, row) {
 					if (jsonFile) {
 						if (jsonFile.response.game_count > 0) {
 							injectMessage(row, 1);
-							//console.log('Has game');
+							//Has game
 						} else {
 
 							injectMessage(row, 0);
-							//console.log('Does not have game');
+							//Does not have game
 						}
 					}
 				}
             },
         });
     } else { injectMessage(row, 2);}
-
-
-
 }
 
-// Maybe will need this, maybe not.
-/*function getApps(subID) {
-    var link = "https://store.steampowered.com/api/packagedetails/?packageids=" + subID;
-    GM_xmlhttpRequest({
-        method: "GET",
-        url: link,
-        timeout: 3000,
-        onload: function(response) {
-            var jsonFile = JSON.parse(response.responseText);
-            var arrayApps = [];
-            for (var j = 0; j < jsonFile[subID]['data']['apps'].length; j++) {
-                arrayApps.push(jsonFile[subID]['data']['apps'][j]['id']);
-            }
-            var int_appids_filter = turnToIntArray(arrayApps);
-            var checkGames = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID64 + ',"appids_filter":' + JSON.stringify(int_appids_filter) + "}";
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: checkGames,
-                onload: function(response) {
-                    var jsonFile = JSON.parse(response.responseText);
-                    if (jsonFile['response']['game_count'] == arrayApps.length) {
-						console.log('Has game');
-                        //highlight("sub/" + subID);
-                    }
-                    else if (jsonFile['response']['game_count'] != 0) {
-						console.log('Has game');
-                        //highlightSub("sub/" + subID);
-                    }
-					else { console.log('does not have game');}
-                }
-            });
-        }
-    });
-}*/
 function turnToIntArray(oldArray) {
     var newArray = [];
     for (var i = 0; i < oldArray.length; i++) {
@@ -156,7 +120,6 @@ function turnToIntArray(oldArray) {
 }
 
 function checkHasGame(row, appID) {
-	//Add all page loading function call here:
     GM_xmlhttpRequest({
         method: "GET",
         url: row.children[1].children[0].href,
@@ -208,8 +171,11 @@ function getStatusDiv(elem) {
 	}
 }
 
-function getRows() {
-    return document.getElementsByClassName("table__row-inner-wrap");
+function getRows(curHTML) {
+	var tempElem = document.createElement("div");
+	tempElem.style.display = "none";
+	tempElem.innerHTML = curHTML;
+    return tempElem.getElementsByClassName("table__row-inner-wrap");
 }
 
 function readAllPages(currentURL, currentPage) {
@@ -222,21 +188,18 @@ function readAllPages(currentURL, currentPage) {
 			if (response){
 				var lastPage = getLastPage(document);
 				var lastURL = currentURL + lastPage;
-				console.log(lastPage + ' - ' + currentPage);
+				console.log(currentPage + '/' + lastPage);
 				if (lastPage >= currentPage) {
 					checkAPIKey();
 					if (apiKey) {
-						var steamID64;
-						var rows = getRows();
-						if (appInput) {
-							var appID = appInput.split(','); // Right now, only works with single appID.
-							for (var i = 0; i < rows.length; i++) {
-								checkHasGame(rows[i], appID);
-							}
+						var rows = getRows(response.responseText);
+						var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
+						console.log("Current page:" + currentPage + " - " + rows.length + " users to check.");
+						for (var i = 0; i < rows.length; i++) {
+							checkHasGame(rows[i], appID);
 						}
 					}
 					readAllPages(currentURL, newPage + 1);
-					console.log(lastURL + ' - ' + checkURL);
 				} else {
 					lastPageScanned = 1;
 				}
