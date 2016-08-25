@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Whitelist Inventory
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.02
+// @version      0.03
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon          
@@ -22,7 +22,8 @@ var apiKey = null;
 var appInput = null;
 var totalScanned = 0;
 var totalHave = 0;
-var lastPageScanned = 0;
+var wlCount = 0;
+var gameTitle = null;
 injectInterface();
 
 function injectInterface() {
@@ -45,36 +46,35 @@ function injectInterface() {
 }
 
 function checkWL() {
+	gameTitle = null;
 	totalScanned = 0;
 	totalHave = 0;
-	appInput = prompt("Please enter the Steam app ID", "271590");
+	appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
+	wlCount = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+	//console.log('Scanning ' + wlCount + ' total whitelisted users.');
 	if (appInput) {
 		readAllPages("https://www.steamgifts.com/account/manage/whitelist/search?page=", 1);
-		/*do while (!lastPageScanned) {
-			// Wait for all WL pages to be read/scanned.
-		}*/
-		// Section above freezes forever (or too long for me to wait). Below will just wait 1.25 seconds per WL page and hope for the best for now.
-		setTimeout(function(){
-			alert("Out of " + totalScanned + " whitelisted users, " + totalHave + " have the game already, or " + Number((100*totalHave/totalScanned).toFixed(2)) + "%");
-		}, getLastPage(document) * 1250);
 	}
 }
 
 function checkAPIKey() {
 	apiKey = localStorage.getItem('APIKey');
     if(!apiKey) {
-        apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:", "");
+        apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:\n\n(You can get/generate your API key here: https://steamcommunity.com/dev/apikey)", "https://steamcommunity.com/dev/apikey");
         if(apiKey) {
             localStorage.setItem('APIKey', apiKey);
         }
     }
 }
 
-function importJSON(steamID, appids_filter, row) {
+
+
+function importJSONGameDetail(steamID, appids_filter) {
     'use strict';
     if (apiKey) {
         var int_appids_filter = turnToIntArray(appids_filter);
-        var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + "}";
+        var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + ',"include_appinfo":1}';
+		//console.log(link);
         var jsonFile;
         GM_xmlhttpRequest ({
             method: "GET",
@@ -86,29 +86,71 @@ function importJSON(steamID, appids_filter, row) {
                         jsonFile = JSON.parse(response.responseText);
                     }catch(e){
                         var badAPIMsg = "Unexpected token < in JSON";
-                        if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
-                            // Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
-                            injectMessage(row, 2);
-                            localStorage.removeItem('APIKey');
-                            apiKey = null;
-                        } else {
-                            console.log(e.name + " -- " + e.message);
-                        }
+						if (apiKey) {
+							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
+								// Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
+								localStorage.removeItem('APIKey');
+								apiKey = null;
+							} else {
+								console.log("Uncaught error: " + e.name + " -- " + e.message);
+							}
+						}
+                    }
+					if (jsonFile) {
+						if (!gameTitle) {
+							if (jsonFile.response.game_count > 0) {
+								gameTitle = jsonFile.response.games[0].name;
+							}
+						}
+					}
+				}
+            },
+        });
+    }
+}
+
+function importJSONUserDetail(steamID, appids_filter) {
+    'use strict';
+    if (apiKey) {
+        var int_appids_filter = turnToIntArray(appids_filter);
+        var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + "}";
+		//console.log(link);
+        var jsonFile;
+        GM_xmlhttpRequest ({
+            method: "GET",
+            url: link,
+            timeout: 5000,
+            onload: function(response) {
+                if (response){
+                    try{
+                        jsonFile = JSON.parse(response.responseText);
+                    }catch(e){
+						if (apiKey) {
+							var badAPIMsg = "Unexpected token < in JSON";
+							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
+								// Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
+								processCount(2);
+								localStorage.removeItem('APIKey');
+								apiKey = null;
+							} else {
+								console.log("Uncaught error: " + e.name + " -- " + e.message);
+							}
+						}
                     }
 					if (jsonFile) {
 						if (jsonFile.response.game_count > 0) {
-							injectMessage(row, 1);
+							processCount(1);
 							//Has game
 						} else {
 
-							injectMessage(row, 0);
+							processCount(0);
 							//Does not have game
 						}
 					}
 				}
             },
         });
-    } else { injectMessage(row, 2);}
+    } else { processCount(2);}
 }
 
 function turnToIntArray(oldArray) {
@@ -131,33 +173,37 @@ function checkHasGame(row, appID) {
 			var searchString1 = 'href="http://steamcommunity.com/profiles/';
 			var searchString2 = '" data-tooltip=';
             var steamID = steamIDdivhtml.slice(steamIDdivhtml.indexOf(searchString1)+searchString1.length,steamIDdivhtml.indexOf(searchString2));
+			if (!gameTitle) {
+				importJSONGameDetail(steamID, appID);
+			}
             if (steamID.length > 0) {
-                importJSON(steamID, appID, row);
+                importJSONUserDetail(steamID, appID);
             }
         }
     });
 }
 
-function injectMessage(elem, hasGame) {
-    var message = getStatusDiv(elem);
+function processCount(hasGame) {
 	totalScanned += 1;
 	switch (hasGame) {
         case 0:
-            message.style.color = "green";
-            message.innerHTML = "Does not have game.";
+            //Does not have game.
             break;
         case 1:
-            message.style.color = "grey";
-            message.innerHTML = "Has game.";
+			//Has game.
 			totalHave +=1;
             break;
         case 2:
-
-            message.style.color = "red";
-            message.innerHTML = "Bad API Key!";
+			//Bad API Key!
             break;
 	}
-    elem.insertBefore(message, elem.children[2]);
+	//console.log(totalScanned + " - " + wlCount);
+	if (totalScanned == wlCount) {
+		alert('Out of ' + totalScanned + ' whitelisted users, ' + totalHave + ' already have "' + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
+	}
+	if (!apiKey) {
+		prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
+	}
 }
 
 function getStatusDiv(elem) {
@@ -180,7 +226,7 @@ function getRows(curHTML) {
 
 function readAllPages(currentURL, currentPage) {
 	var newPage = parseInt(currentPage);
-	var checkURL = currentURL + newPage;
+	var checkURL = currentURL + currentPage;
 	GM_xmlhttpRequest({
 		method: "GET",
 		url: checkURL,
@@ -188,20 +234,18 @@ function readAllPages(currentURL, currentPage) {
 			if (response){
 				var lastPage = getLastPage(document);
 				var lastURL = currentURL + lastPage;
-				console.log(currentPage + '/' + lastPage);
+				//console.log(currentPage + '/' + lastPage);
 				if (lastPage >= currentPage) {
 					checkAPIKey();
 					if (apiKey) {
 						var rows = getRows(response.responseText);
 						var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
-						console.log("Current page:" + currentPage + " - " + rows.length + " users to check.");
+						//console.log("Current page:" + currentPage + " - " + rows.length + " users to check.");
 						for (var i = 0; i < rows.length; i++) {
 							checkHasGame(rows[i], appID);
 						}
 					}
 					readAllPages(currentURL, newPage + 1);
-				} else {
-					lastPageScanned = 1;
 				}
 			}
 		}
