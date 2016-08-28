@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Whitelist Inventory
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.03
+// @version      0.04
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon          
@@ -24,6 +24,8 @@ var totalScanned = 0;
 var totalHave = 0;
 var wlCount = 0;
 var gameTitle = null;
+var inventoryDiv;
+
 injectInterface();
 
 function injectInterface() {
@@ -37,12 +39,14 @@ function injectInterface() {
         } else i++;
     }
 
-    var scriptDiv = document.createElement("DIV");
-    scriptDiv.id = "whitelist_ownership_checker";
-    scriptDiv.className = 'form__submit-button';
-    scriptDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
-    refTarget.parentNode.appendChild(scriptDiv);
+	console.log('Creating button/progress bar...');
+	inventoryDiv = document.createElement("DIV");
+    inventoryDiv.id = "whitelist_ownership_checker";
+    inventoryDiv.className = 'form__submit-button';
+    inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
+    refTarget.parentNode.appendChild(inventoryDiv);
     document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	console.log('Whitelist inventory button loaded without errors.');
 }
 
 function checkWL() {
@@ -51,7 +55,7 @@ function checkWL() {
 	totalHave = 0;
 	appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
 	wlCount = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-	//console.log('Scanning ' + wlCount + ' total whitelisted users.');
+	console.log('Scanning ' + wlCount + ' total whitelisted users.');
 	if (appInput) {
 		readAllPages("https://www.steamgifts.com/account/manage/whitelist/search?page=", 1);
 	}
@@ -69,44 +73,28 @@ function checkAPIKey() {
 
 
 
-function importJSONGameDetail(steamID, appids_filter) {
-    'use strict';
-    if (apiKey) {
-        var int_appids_filter = turnToIntArray(appids_filter);
-        var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + ',"include_appinfo":1}';
-		//console.log(link);
-        var jsonFile;
-        GM_xmlhttpRequest ({
-            method: "GET",
-            url: link,
-            timeout: 5000,
-            onload: function(response) {
-                if (response){
-                    try{
-                        jsonFile = JSON.parse(response.responseText);
-                    }catch(e){
-                        var badAPIMsg = "Unexpected token < in JSON";
-						if (apiKey) {
-							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
-								// Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
-								localStorage.removeItem('APIKey');
-								apiKey = null;
-							} else {
-								console.log("Uncaught error: " + e.name + " -- " + e.message);
-							}
-						}
-                    }
-					if (jsonFile) {
-						if (!gameTitle) {
-							if (jsonFile.response.game_count > 0) {
-								gameTitle = jsonFile.response.games[0].name;
-							}
-						}
-					}
+function importJSONGameDetail(steamID, appID) {
+	var link = "http://store.steampowered.com/api/appdetails?appids="+appID;
+	//console.log(link);
+	var jsonFile;
+	GM_xmlhttpRequest ({
+		method: "GET",
+		url: link,
+		timeout: 5000,
+		onload: function(response) {
+			if (response){
+				try{
+					jsonFile = JSON.parse(response.responseText);
+				}catch(e){
+					var badAPIMsg = "Unexpected token < in JSON";
+					console.log("Uncaught error: " + e.name + " -- " + e.message);
 				}
-            },
-        });
-    }
+				if (jsonFile) {
+					gameTitle = jsonFile[appID.toString()].data.name;
+				}
+			}
+		},
+	});
 }
 
 function importJSONUserDetail(steamID, appids_filter) {
@@ -179,6 +167,7 @@ function checkHasGame(row, appID) {
             if (steamID.length > 0) {
                 importJSONUserDetail(steamID, appID);
             }
+			inventoryDiv.innerHTML="<i class='fa fa-arrow-circle-right'></i> Checking inventories: " + (100*totalScanned/wlCount).toFixed(1) + '%';
         }
     });
 }
@@ -199,7 +188,8 @@ function processCount(hasGame) {
 	}
 	//console.log(totalScanned + " - " + wlCount);
 	if (totalScanned == wlCount) {
-		alert('Out of ' + totalScanned + ' whitelisted users, ' + totalHave + ' already have "' + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
+		alert('Out of ' + totalScanned + ' whitelisted ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
+		inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
 	}
 	if (!apiKey) {
 		prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
@@ -234,13 +224,12 @@ function readAllPages(currentURL, currentPage) {
 			if (response){
 				var lastPage = getLastPage(document);
 				var lastURL = currentURL + lastPage;
-				//console.log(currentPage + '/' + lastPage);
 				if (lastPage >= currentPage) {
+					console.log(currentPage + '/' + lastPage);
 					checkAPIKey();
 					if (apiKey) {
 						var rows = getRows(response.responseText);
 						var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
-						//console.log("Current page:" + currentPage + " - " + rows.length + " users to check.");
 						for (var i = 0; i < rows.length; i++) {
 							checkHasGame(rows[i], appID);
 						}
