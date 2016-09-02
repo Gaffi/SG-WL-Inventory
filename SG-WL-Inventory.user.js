@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Whitelist Inventory
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.04
+// @version      0.05
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon          
@@ -9,6 +9,7 @@
 // @supportURL   https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
 // @supportURL   https://github.com/Gaffi/SG-WL-Inventory
 // @match        https://www.steamgifts.com/account/manage/whitelist*
+// @match		 http://store.steampowered.com/app/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -16,6 +17,7 @@
 // @grant        GM_log
 // @connect      api.steampowered.com
 // @connect      store.steampowered.com
+// @connect		 www.steamgifts.com
 // ==/UserScript==
 
 var apiKey = null;
@@ -23,12 +25,44 @@ var appInput = null;
 var totalScanned = 0;
 var totalHave = 0;
 var wlCount = 0;
+var wlPages = 0;
 var gameTitle = null;
 var inventoryDiv;
+var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
+var urlSteamApp = 'store.steampowered.com/app/';
+var useSteam = false;
 
-injectInterface();
 
-function injectInterface() {
+window.onload = function() {
+	if (window.location.href.indexOf(urlSteamApp)>0) {
+		console.log('Injecting Steam Store');
+		useSteam = true;
+		injectInterfaceSteam();
+	} else {
+		console.log('Injecting SteamGifts');
+		useSteam = false;
+		injectInterfaceSG();
+	}
+};
+
+function injectInterfaceSteam() {
+    var refTarget;
+    refTarget = document.getElementsByClassName('apphub_OtherSiteInfo')[0];
+
+	console.log('Creating button/progress bar on Steam store...');
+	inventoryDiv = document.createElement("DIV");
+    inventoryDiv.id = "whitelist_ownership_checker";
+    inventoryDiv.className = 'btnv6_blue_hoverfade btn_medium';
+    inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
+    refTarget.appendChild(inventoryDiv);
+    document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	var curURL = window.location.href;
+	appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
+	getWLCounts(false);
+	console.log('Whitelist inventory button loaded without errors.');
+}
+
+function injectInterfaceSG() {
 	var bFound=0;
     var i=0;
     var refTarget;
@@ -39,13 +73,14 @@ function injectInterface() {
         } else i++;
     }
 
-	console.log('Creating button/progress bar...');
+	console.log('Creating button/progress bar on SteamGifts...');
 	inventoryDiv = document.createElement("DIV");
     inventoryDiv.id = "whitelist_ownership_checker";
     inventoryDiv.className = 'form__submit-button';
     inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
     refTarget.parentNode.appendChild(inventoryDiv);
     document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	getWLCounts(true);
 	console.log('Whitelist inventory button loaded without errors.');
 }
 
@@ -53,11 +88,44 @@ function checkWL() {
 	gameTitle = null;
 	totalScanned = 0;
 	totalHave = 0;
-	appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
-	wlCount = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+	
+	if (!appInput) {
+		appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
+	}	
+	
 	console.log('Scanning ' + wlCount + ' total whitelisted users.');
 	if (appInput) {
-		readAllPages("https://www.steamgifts.com/account/manage/whitelist/search?page=", 1);
+		readAllWLPages(urlWhitelist + "/search?page=", 1);
+	}
+}
+
+function getWLCounts(OnWLPage) {
+	var linkPosition = 0;
+	var searchURL = 'href="/account/manage/whitelist/search?page=';
+	if (OnWLPage) {
+		linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+		wlPages = document.body.innerHTML.slice(linkPosition, document.body.innerHTML.indexOf('"',linkPosition-1));
+		
+		wlCount = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+	} else {
+		var link = urlWhitelist;
+		console.log('Checking WL page [' + link + '] for user count.');
+		GM_xmlhttpRequest({
+			method: "GET",
+			url: link,
+			onload: function(response) {
+				if (response){
+					var tempElem = document.createElement("div");
+					tempElem.style.display = "none";
+					tempElem.innerHTML = response.responseText;
+					console.log(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+					wlCount = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+					
+					linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+					wlPages = tempElem.innerHTML.slice(linkPosition, tempElem.innerHTML.indexOf('"',linkPosition-1));
+				}
+			}
+		});
 	}
 }
 
@@ -71,11 +139,9 @@ function checkAPIKey() {
     }
 }
 
-
-
-function importJSONGameDetail(steamID, appID) {
+function importJSONSteamGameDetail(steamID, appID) {
 	var link = "http://store.steampowered.com/api/appdetails?appids="+appID;
-	//console.log(link);
+	console.log('Checking store page [' + link + '] for game details.');
 	var jsonFile;
 	GM_xmlhttpRequest ({
 		method: "GET",
@@ -97,7 +163,7 @@ function importJSONGameDetail(steamID, appID) {
 	});
 }
 
-function importJSONUserDetail(steamID, appids_filter) {
+function importJSONSteamUserDetail(steamID, appids_filter) {
     'use strict';
     if (apiKey) {
         var int_appids_filter = turnToIntArray(appids_filter);
@@ -152,7 +218,7 @@ function turnToIntArray(oldArray) {
 function checkHasGame(row, appID) {
     GM_xmlhttpRequest({
         method: "GET",
-        url: row.children[1].children[0].href,
+        url: 'https://www.steamgifts.com/user/' + row.getElementsByClassName('table__column__heading')[0].innerHTML,
         onload: function(response) {
             var tempElem = document.createElement("div");
             tempElem.style.display = "none";
@@ -162,12 +228,16 @@ function checkHasGame(row, appID) {
 			var searchString2 = '" data-tooltip=';
             var steamID = steamIDdivhtml.slice(steamIDdivhtml.indexOf(searchString1)+searchString1.length,steamIDdivhtml.indexOf(searchString2));
 			if (!gameTitle) {
-				importJSONGameDetail(steamID, appID);
+				importJSONSteamGameDetail(steamID, appID);
 			}
             if (steamID.length > 0) {
-                importJSONUserDetail(steamID, appID);
+                importJSONSteamUserDetail(steamID, appID);
             }
-			inventoryDiv.innerHTML="<i class='fa fa-arrow-circle-right'></i> Checking inventories: " + (100*totalScanned/wlCount).toFixed(1) + '%';
+			if (useSteam) { 
+				inventoryDiv.innerHTML = "<span>Checking inventories: " + (100*totalScanned/wlCount).toFixed(1) + "%</span>";
+			} else {
+				inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Checking inventories: " + (100*totalScanned/wlCount).toFixed(1) + '%';
+			}
         }
     });
 }
@@ -188,62 +258,49 @@ function processCount(hasGame) {
 	}
 	//console.log(totalScanned + " - " + wlCount);
 	if (totalScanned == wlCount) {
-		alert('Out of ' + totalScanned + ' whitelisted ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
-		inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
+		alert('Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
+		if (useSteam) {
+			inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
+		} else { 
+			inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
+		}
 	}
 	if (!apiKey) {
 		prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
 	}
 }
 
-function getStatusDiv(elem) {
-	var statusDiv = elem.getElementsByClassName('WL_Inv_Status');
-	if (statusDiv.length > 0) {
-		return statusDiv[0];
-	} else {
-		var message = document.createElement("div");
-		message.className = 'WL_Inv_Status';
-		return message;
-	}
-}
-
-function getRows(curHTML) {
+function getWLRows(curHTML) {
 	var tempElem = document.createElement("div");
 	tempElem.style.display = "none";
 	tempElem.innerHTML = curHTML;
     return tempElem.getElementsByClassName("table__row-inner-wrap");
 }
 
-function readAllPages(currentURL, currentPage) {
+function readAllWLPages(currentURL, currentPage) {
 	var newPage = parseInt(currentPage);
 	var checkURL = currentURL + currentPage;
+	console.log('Scanning WL [' + checkURL + '] for user list');
 	GM_xmlhttpRequest({
 		method: "GET",
 		url: checkURL,
 		onload: function(response) {
 			if (response){
-				var lastPage = getLastPage(document);
+				var lastPage = wlPages;//getLastPageOfWL(response.responseText);
 				var lastURL = currentURL + lastPage;
 				if (lastPage >= currentPage) {
 					console.log(currentPage + '/' + lastPage);
 					checkAPIKey();
 					if (apiKey) {
-						var rows = getRows(response.responseText);
+						var rows = getWLRows(response.responseText);
 						var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
 						for (var i = 0; i < rows.length; i++) {
 							checkHasGame(rows[i], appID);
 						}
 					}
-					readAllPages(currentURL, newPage + 1);
+					readAllWLPages(currentURL, newPage + 1);
 				}
 			}
 		}
 	});
-}
-
-function getLastPage(curDocument) {
-	var searchURL = 'href="/account/manage/whitelist/search?page=';
-	var fullPageHTML = curDocument.getElementsByTagName("BODY")[0].innerHTML;
-	var linkPosition = fullPageHTML.lastIndexOf(searchURL) + searchURL.length;
-	return fullPageHTML.slice(linkPosition, fullPageHTML.indexOf('"',linkPosition-1));
 }
