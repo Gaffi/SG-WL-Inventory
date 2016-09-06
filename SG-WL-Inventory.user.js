@@ -9,7 +9,7 @@
 // @supportURL   https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
 // @supportURL   https://github.com/Gaffi/SG-WL-Inventory
 // @match        https://www.steamgifts.com/account/manage/whitelist*
-// @match	 http://store.steampowered.com/app/*
+// @match		 http://store.steampowered.com/app/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -228,7 +228,6 @@ function importJSONSteamUserDetail(steamID, appID) {
     'use strict';
     if (apiKey) {
         var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
-		//https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=B1D2FD77790F43355402B0F4F40ACD5F&input_json={"steamid":76561198127957838}
 		//console.log(link);
         var jsonFile;
         GM_xmlhttpRequest ({
@@ -278,7 +277,6 @@ function importJSONSteamUserDetailSingleGame(steamID, appids_filter) {
     if (apiKey) {
         var int_appids_filter = turnToIntArray(appids_filter);
         var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + "}";
-		//https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=B1D2FD77790F43355402B0F4F40ACD5F&input_json={"steamid":76561198127957838,"appids_filter":405860}
 		//console.log(link);
         var jsonFile;
         GM_xmlhttpRequest ({
