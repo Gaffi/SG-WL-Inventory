@@ -37,23 +37,6 @@ cacheDate.setDate(new Date().getDate()-1);
 
 var LAST_UPDATED = localStorage.getItem('SG_WL_Inventory_last_updated');
 var USER_OWN_DATA, USER_WISH_DATA;
-var user_own_data = localStorage.getItem('SG_WL_Inventory_user_own_data');
-var user_wish_data = localStorage.getItem('SG_WL_Inventory_user_wish_data');
-if (LAST_UPDATED < cacheDate) {
-	USER_OWN_DATA = JSON.parse('{"whitelistusers":[]}');
-	USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
-} else {
-	if (user_own_data) {
-		USER_OWN_DATA = JSON.parse(user_own_data);
-	} else {
-		USER_OWN_DATA = JSON.parse('{"whitelistusers":[]}');
-	}
-	if (user_wish_data) {
-		USER_WISH_DATA = JSON.parse(user_wish_data);
-	} else {
-		USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
-	}
-}
 
 if (!Array.prototype.indexOf) {
   Array.prototype.indexOf = function (obj, fromIndex) {
@@ -131,6 +114,26 @@ function injectInterfaceSG() {
  * Kicks off checking routine, initiated by button click on user interface.
  */
 function checkWL() {
+	console.log('Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
+	var user_own_data = localStorage.getItem('SG_WL_Inventory_user_own_data');
+	var user_wish_data = localStorage.getItem('SG_WL_Inventory_user_wish_data');
+
+	if (LAST_UPDATED < cacheDate) {
+		USER_OWN_DATA = JSON.parse('{"whitelistusers":[]}');
+		USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
+	} else {
+		if (user_own_data) {
+			USER_OWN_DATA = JSON.parse(user_own_data);
+		} else {
+			USER_OWN_DATA = JSON.parse('{"whitelistusers":[]}');
+		}
+		if (user_wish_data) {
+			USER_WISH_DATA = JSON.parse(user_wish_data);
+		} else {
+			USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
+		}
+	}
+
 	gameTitle = null;
 	totalScanned = 0;
 	totalHave = 0;
@@ -167,7 +170,7 @@ function getWLCounts(OnWLPage) {
 					var tempElem = document.createElement("div");
 					tempElem.style.display = "none";
 					tempElem.innerHTML = response.responseText;
-					console.log(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+					//console.log(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
 					wlCount = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
 
 					linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
@@ -244,6 +247,7 @@ function importJSONSteamUserDetail(steamID, appID) {
 							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
 								// Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
 								processCount(2);
+								console.log('Data error, likely bad API key.');
 								localStorage.removeItem('APIKey');
 								apiKey = null;
 							} else {
@@ -252,7 +256,7 @@ function importJSONSteamUserDetail(steamID, appID) {
 						}
                     }
 					if (jsonFile) {
-						USER_OWN_DATA.whitelistusers.push(JSON.parse('{"userID":'+steamID+',"userData":'+response.responseText+'}'));
+						addUserToJSON(JSON.parse(response.responseText), steamID);
 						if (findGameInJSON(JSON.parse(response.responseText),appID)) {
 							processCount(1);
 							//Has game
@@ -349,11 +353,19 @@ function checkHasGame(row, appID) {
 				importJSONSteamGameDetail(appID);
 			}
             if (steamID.length > 0) {
-				if (USER_OWN_DATA.whitelistusers.indexOf(steamID) < 0) {
+				console.log('Checking stored data for ' + steamID);
+				var alreadyHave = false;
+				for (var i = 0; i < USER_OWN_DATA.whitelistusers.length; i++) {
+					if (USER_OWN_DATA.whitelistusers[i].userID == steamID) {
+						alreadyHave = true;
+						break;
+					}
+				}
+				if (!alreadyHave) {
 					console.log('Do not have user stored - checking API data for ' + steamID);
 					importJSONSteamUserDetail(steamID, appID);
 				} else {
-					console.log('Already have user stored for ' + steamID);
+					console.log('Already have user stored for ' + steamID + '. Not checking API.');
 					readStoredOwnershipData(steamID, appID);
 				}
 			}
@@ -386,18 +398,31 @@ function processCount(hasGame) {
 	}
 	console.log(totalScanned + " - " + wlCount);
 	if (totalScanned == wlCount) {
-		alert('Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
+		wrapUp();
+	}
+}
+
+/**
+* Finalize data, output, and storage.
+*/
+function wrapUp() {
+	alert('Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
 		if (useSteam) {
 			inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
 		} else {
 			inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
 		}
 
-		localStorage.setItem('SG_WL_Inventory_user_own_data', USER_OWN_DATA);
-	}
-	if (!apiKey) {
-		prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
-	}
+		//if (ranAPI) {
+			console.log('Finishing up... writing user data to localStorage');
+			console.log(USER_OWN_DATA);
+			//var cleanedJSON = cleanupJSON(USER_OWN_DATA);
+			//console.log(cleanedJSON);
+			localStorage.setItem('SG_WL_Inventory_user_own_data', JSON.stringify(USER_OWN_DATA));
+		//}
+		if (!apiKey) {
+			prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
+		}
 }
 
 /**
@@ -454,7 +479,7 @@ function readAllWLPages(currentURL, currentPage) {
 function readStoredOwnershipData(steamID, appID){
 	var userData = findUserInJSON(USER_OWN_DATA.whitelistusers, steamID);
 	if (userData) {
-		console.log(userData);
+		//console.log(userData);
 		var gameData = findGameInJSON(userData, appID);
 		if (gameData) {
 			processCount(1);
@@ -467,16 +492,16 @@ function readStoredOwnershipData(steamID, appID){
 }
 
 /**
- * Checks is user-specific info already exists in stored JSON data.
+ * Checks if user-specific info already exists in stored JSON data.
  * @param {Object} JSONArray - A parsed JSON object to search through - holds a listing of all users
  * @param {Number} steamID - Steam user ID to check ownership
  * @return {Object} returnJSON - A parsed JSON object (if not null) - that is a subset of the passed JSONArray - with user ownership list/details
  */
-function findUserInJSON (JSONArray, steamID) {
+function findUserInJSON(JSONArray, steamID) {
 	var returnJSON = null;
 	console.log('Scanning stored user data for user ' + steamID);
     for (var i = 0; i < JSONArray.length; i++) {
-        if (JSONArray[i].steamID == steamID) {
+        if (JSONArray[i].userID == steamID) {
 			console.log('Found user ' + steamID + ' in stored data.');
 			returnJSON = JSONArray[i].userData;
             return returnJSON;
@@ -487,12 +512,12 @@ function findUserInJSON (JSONArray, steamID) {
 }
 
 /**
- * Adds two numbers
+ * Checks if game-specific info already exists in stored JSON data.
  * @param {Object} JSONArray - A parsed JSON object to search through - holds a listing of all games for a user
  * @param {Number} appID - Steam game ID to check ownership of
- * @return {boolean} hasGame - Result of searching for gae in JSON data - true = owned, false = not owned
+ * @return {boolean} hasGame - Result of searching for game in JSON data - true = owned, false = not owned
  */
-function findGameInJSON (JSONArray, appID) {
+function findGameInJSON(JSONArray, appID) {
 	var canReadGames = true;
 	var hasGame = false;
 	try{
@@ -511,4 +536,36 @@ function findGameInJSON (JSONArray, appID) {
 	}
 	console.log('User does not have game');
     return hasGame;
+}
+
+/**
+ * Adds user data from Steam API to pre-load JSON
+ * @param {Object} newJSON - A parsed JSON object to add (if not already present)
+ * @param {Number} steamID - Steam user ID to check ownership
+ */
+function addUserToJSON(newJSON, steamID) {
+	console.log("Checking to see if we need to add user " + steamID + " to stored data pre-load (JSON).");
+	//USER_OWN_DATA.whitelistusers.push(JSON.parse('{"userID":' + steamID + ',"userData":' + response.responseText + '}'));
+	var alreadyHave = false;
+	for (var i = 0; i < USER_OWN_DATA.whitelistusers.length; i++) {
+		if (USER_OWN_DATA.whitelistusers[i].userID == steamID) {
+			alreadyHave = true;
+			console.log("We already have data for this user, so skipping...");
+			break;
+		}
+	}
+	if (!alreadyHave) {
+		localStorage.setItem('SG_WL_Inventory_last_updated', new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
+		if (newJSON.response.games) {
+			console.log("No data for " + steamID + ", but we have games to add. Adding to pre-load (JSON).");
+			var tempJSON = JSON.parse('{"userID":' + steamID + ',"userData":[]}');
+			for(var j = 0; j < newJSON.response.games.length; j++) {
+				tempJSON.userData.push(newJSON.response.games[j].appid);
+			}
+			USER_OWN_DATA.whitelistusers.push(tempJSON);
+		} else {
+			console.log("No data for " + steamID + ", with no games to add (possibly private profile). Adding to pre-load (JSON).");
+			USER_OWN_DATA.whitelistusers.push(JSON.parse('{"userID":' + steamID + ',"userData":[]}'));
+		}
+	}
 }
