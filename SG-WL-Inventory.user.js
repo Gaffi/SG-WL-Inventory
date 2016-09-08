@@ -18,6 +18,7 @@
 // @connect      api.steampowered.com
 // @connect      store.steampowered.com
 // @connect		 www.steamgifts.com
+// @connect 	 steamcommunity.com
 // ==/UserScript==
 
 var apiKey = null;
@@ -29,13 +30,19 @@ var wlPages = 0;
 var gameTitle = null;
 var inventoryDiv;
 var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
+var urlWishlist = 'http://steamcommunity.com/profiles/ ... /wishlist';
+var searchWishlistHTML = 'wishlist_remove_ ..... ';
 var urlSteamApp = 'store.steampowered.com/app/';
 var useSteam = false;
+
+var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
+var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
+var keyStorageWishData = 'SG_WL_Inventory_user_wish_data';
 
 var cacheDate = new Date();
 cacheDate.setDate(new Date().getDate()-1);
 
-var LAST_UPDATED = localStorage.getItem('SG_WL_Inventory_last_updated');
+var LAST_UPDATED = localStorage.getItem(keyStorageUpdated);
 var USER_OWN_DATA, USER_WISH_DATA;
 
 if (!Array.prototype.indexOf) {
@@ -79,7 +86,11 @@ function injectInterfaceSteam() {
     inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
     refTarget.appendChild(inventoryDiv);
     document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	
 	var curURL = window.location.href;
+	if (curURL.lastIndexOf('/')+1 != curURL.length) {
+		curURL += '/';
+	}
 	appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
 	getWLCounts(false);
 	console.log('Whitelist inventory button loaded without errors.');
@@ -115,10 +126,10 @@ function injectInterfaceSG() {
  */
 function checkWL() {
 	console.log('Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
-	var user_own_data = localStorage.getItem('SG_WL_Inventory_user_own_data');
-	var user_wish_data = localStorage.getItem('SG_WL_Inventory_user_wish_data');
+	var user_own_data = localStorage.getItem(keyStorageOwnData);
+	var user_wish_data = localStorage.getItem(keyStorageWishData);
 
-	if (LAST_UPDATED < cacheDate) {
+	if (LAST_UPDATED < cacheDate || useSteam) { // Only use cached values if not using STEAM.
 		USER_OWN_DATA = JSON.parse('{"whitelistusers":[]}');
 		USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
 	} else {
@@ -133,18 +144,28 @@ function checkWL() {
 			USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
 		}
 	}
+	
+	
+	apiKey = localStorage.getItem('APIKey');
+	
+	if(!apiKey) {
+		apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:\n\n(You can get/generate your API key here: https://steamcommunity.com/dev/apikey)", "https://steamcommunity.com/dev/apikey");
+		if(apiKey) {
+			localStorage.setItem('APIKey', apiKey);
+		}
+	} else {
+		gameTitle = null;
+		totalScanned = 0;
+		totalHave = 0;
 
-	gameTitle = null;
-	totalScanned = 0;
-	totalHave = 0;
+		if (!useSteam) {
+			appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
+		}
 
-	if (!useSteam) {
-		appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
-	}
-
-	console.log('Scanning ' + wlCount + ' total whitelisted users.');
-	if (appInput) {
-		readAllWLPages(urlWhitelist + "/search?page=", 1);
+		if (appInput) {
+			console.log('Scanning ' + wlCount + ' total whitelisted users for game ' + appInput);
+			readAllWLPages(urlWhitelist + "/search?page=", 1);
+		}
 	}
 }
 
@@ -179,19 +200,6 @@ function getWLCounts(OnWLPage) {
 			}
 		});
 	}
-}
-
-/**
- * Verifies an API key has been provided to localStorage. If not, prompt for input from user.
- */
-function checkAPIKey() {
-	apiKey = localStorage.getItem('APIKey');
-    if(!apiKey) {
-        apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:\n\n(You can get/generate your API key here: https://steamcommunity.com/dev/apikey)", "https://steamcommunity.com/dev/apikey");
-        if(apiKey) {
-            localStorage.setItem('APIKey', apiKey);
-        }
-    }
 }
 
 /**
@@ -257,13 +265,14 @@ function importJSONSteamUserDetail(steamID, appID) {
                     }
 					if (jsonFile) {
 						addUserToJSON(JSON.parse(response.responseText), steamID);
-						if (findGameInJSON(JSON.parse(response.responseText),appID)) {
+						readStoredOwnershipData(steamID, appID);
+						/*if (findGameInJSON(JSON.parse(response.responseText),appID)) {
 							processCount(1);
 							//Has game
 						} else {
 							processCount(0);
 							//Does not have game
-						}
+						}*/
 					}
 				}
             },
@@ -354,14 +363,14 @@ function checkHasGame(row, appID) {
 			}
             if (steamID.length > 0) {
 				console.log('Checking stored data for ' + steamID);
-				var alreadyHave = false;
+				var haveUser = false;
 				for (var i = 0; i < USER_OWN_DATA.whitelistusers.length; i++) {
 					if (USER_OWN_DATA.whitelistusers[i].userID == steamID) {
-						alreadyHave = true;
+						haveUser = true;
 						break;
 					}
 				}
-				if (!alreadyHave) {
+				if (!haveUser) {
 					console.log('Do not have user stored - checking API data for ' + steamID);
 					importJSONSteamUserDetail(steamID, appID);
 				} else {
@@ -396,7 +405,7 @@ function processCount(hasGame) {
 			//Bad data or API Key!
             break;
 	}
-	console.log(totalScanned + " - " + wlCount);
+	console.log("Processing " + totalScanned + " out of " + wlCount + " total whitelisted users");
 	if (totalScanned == wlCount) {
 		wrapUp();
 	}
@@ -406,23 +415,21 @@ function processCount(hasGame) {
 * Finalize data, output, and storage.
 */
 function wrapUp() {
+	if (!useSteam) {
+		console.log('Finishing up... writing user data to localStorage');
+		localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
+	} else {
+		console.log('Finishing up... ran from Steam, so not writing user data to localStorage');
+	}
+	if (!apiKey) {
+		prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
+	}
 	alert('Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
-		if (useSteam) {
-			inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
-		} else {
-			inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
-		}
-
-		//if (ranAPI) {
-			console.log('Finishing up... writing user data to localStorage');
-			console.log(USER_OWN_DATA);
-			//var cleanedJSON = cleanupJSON(USER_OWN_DATA);
-			//console.log(cleanedJSON);
-			localStorage.setItem('SG_WL_Inventory_user_own_data', JSON.stringify(USER_OWN_DATA));
-		//}
-		if (!apiKey) {
-			prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
-		}
+	if (useSteam) {
+		inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
+	} else {
+		inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
+	}
 }
 
 /**
@@ -456,7 +463,6 @@ function readAllWLPages(currentURL, currentPage) {
 				var lastURL = currentURL + lastPage;
 				if (lastPage >= currentPage) {
 					console.log(currentPage + '/' + lastPage);
-					checkAPIKey();
 					if (apiKey) {
 						var rows = getWLRows(response.responseText);
 						var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
@@ -482,6 +488,7 @@ function readStoredOwnershipData(steamID, appID){
 		//console.log(userData);
 		var gameData = findGameInJSON(userData, appID);
 		if (gameData) {
+			console.log('User has game');
 			processCount(1);
 		} else {
 			processCount(0);
@@ -521,13 +528,13 @@ function findGameInJSON(JSONArray, appID) {
 	var canReadGames = true;
 	var hasGame = false;
 	try{
-		console.log('Scanning ' + JSONArray.response.games.length + ' total user-owned games for ' + appID);
+		console.log('Scanning ' + JSONArray.length + ' total user-owned games for ' + appID);
 	}catch(e){
 		canReadGames = false;
 	}
 	if (canReadGames) {
-		for (var i = 0; i < JSONArray.response.games.length; i++) {
-			if (JSONArray.response.games[i].appid == appID) {
+		for (var i = 0; i < JSONArray.length; i++) {
+			if (JSONArray[i] == appID) {
 				console.log('User has game');
 				hasGame = true;
 				return hasGame;
@@ -555,7 +562,7 @@ function addUserToJSON(newJSON, steamID) {
 		}
 	}
 	if (!alreadyHave) {
-		localStorage.setItem('SG_WL_Inventory_last_updated', new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
+		localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
 		if (newJSON.response.games) {
 			console.log("No data for " + steamID + ", but we have games to add. Adding to pre-load (JSON).");
 			var tempJSON = JSON.parse('{"userID":' + steamID + ',"userData":[]}');
