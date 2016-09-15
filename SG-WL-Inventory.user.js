@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         SteamGifts Whitelist Inventory
+// @name         SteamGifts Inventory Checker
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.06
+// @version      0.07
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon
@@ -30,8 +30,8 @@ var wlPages = 0;
 var gameTitle = null;
 var inventoryDiv;
 var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
-var urlWishlist = 'http://steamcommunity.com/profiles/ ... /wishlist';
-var searchWishlistHTML = 'wishlist_remove_ ..... ';
+//var urlWishlist = 'http://steamcommunity.com/profiles/ ... /wishlist';
+//var searchWishlistHTML = 'wishlist_remove_ ..... ';
 var urlSteamApp = 'store.steampowered.com/app/';
 var useSteam = false;
 
@@ -62,11 +62,11 @@ if (!Array.prototype.indexOf) {
 
 window.onload = function() {
 	if (window.location.href.indexOf(urlSteamApp)>0) {
-		console.log('Injecting Steam Store');
+		console.log('SteamGifts Inventory Checker Injecting Steam Store');
 		useSteam = true;
 		injectInterfaceSteam();
 	} else {
-		console.log('Injecting SteamGifts');
+		console.log('SteamGifts Inventory Checker Injecting SteamGifts');
 		useSteam = false;
 		injectInterfaceSG();
 	}
@@ -86,6 +86,16 @@ function injectInterfaceSteam() {
     inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
     refTarget.appendChild(inventoryDiv);
     document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	
+	/*
+	* This section may be implemented later to allow for caching from Steam store. Cache is not shared between SG and Steam, however, and the nature of this process makes me want to avoid it.
+	// Removing Steam's localStorage. This is surely not optimal, but Steam uses up as much localStorage as possible, so there is no way to cache unless we make some room.
+	for (var i = 0; i < localStorage.length; i++){
+		if (localStorage.key(i) != 'APIKey' && localStorage.key(i) != keyStorageUpdated && localStorage.key(i) != keyStorageOwnData && localStorage.key(i) != keyStorageWishData) {
+			localStorage.removeItem(localStorage.key(i));
+		}
+	}
+	*/
 	
 	var curURL = window.location.href;
 	if (curURL.lastIndexOf('/')+1 != curURL.length) {
@@ -129,7 +139,7 @@ function checkWL() {
 	var user_own_data = localStorage.getItem(keyStorageOwnData);
 	var user_wish_data = localStorage.getItem(keyStorageWishData);
 
-	if (LAST_UPDATED < cacheDate || useSteam) { // Only use cached values if not using STEAM.
+	if (LAST_UPDATED < cacheDate || useSteam || LAST_UPDATED === null) { // Only use cached values if not using STEAM.
 		USER_OWN_DATA = JSON.parse('{"whitelistusers":[]}');
 		USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
 	} else {
@@ -177,10 +187,16 @@ function getWLCounts(OnWLPage) {
 	var linkPosition = 0;
 	var searchURL = 'href="/account/manage/whitelist/search?page=';
 	if (OnWLPage) {
-		linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
-		wlPages = document.body.innerHTML.slice(linkPosition, document.body.innerHTML.indexOf('"',linkPosition-1));
+		// Read the whitelist page in place
 		wlCount = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+		if (wlCount<=25) {
+			wlPages = 1;
+		} else 
+			linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+			wlPages = document.body.innerHTML.slice(linkPosition, document.body.innerHTML.indexOf('"',linkPosition-1));
+		}
 	} else {
+		// Load the whitelist page and read from xml data
 		var link = urlWhitelist;
 		console.log('Checking WL page [' + link + '] for user count.');
 		GM_xmlhttpRequest({
@@ -193,9 +209,14 @@ function getWLCounts(OnWLPage) {
 					tempElem.innerHTML = response.responseText;
 					//console.log(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
 					wlCount = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-
-					linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
-					wlPages = tempElem.innerHTML.slice(linkPosition, tempElem.innerHTML.indexOf('"',linkPosition-1));
+					if (wlCount<=25) {
+						wlPages = 1;
+					} else {
+						linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+						wlPages = tempElem.innerHTML.slice(linkPosition, tempElem.innerHTML.indexOf('"',linkPosition-1));
+					}
+				} else {
+					console.log('Error loading WL page...');
 				}
 			}
 		});
@@ -472,6 +493,8 @@ function readAllWLPages(currentURL, currentPage) {
 					}
 					readAllWLPages(currentURL, newPage + 1);
 				}
+			} else {
+				console.log('Error loading WL page...');
 			}
 		}
 	});
