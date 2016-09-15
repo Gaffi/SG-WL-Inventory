@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Inventory Checker
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.07
+// @version      0.08
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon
@@ -191,7 +191,7 @@ function getWLCounts(OnWLPage) {
 		wlCount = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
 		if (wlCount<=25) {
 			wlPages = 1;
-		} else 
+		} else {
 			linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
 			wlPages = document.body.innerHTML.slice(linkPosition, document.body.innerHTML.indexOf('"',linkPosition-1));
 		}
