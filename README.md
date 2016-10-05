@@ -11,6 +11,6 @@ I've built in some basic functionality that will scan through your whitelist for
 
 The script uses the Steam API key (you can get yours <a href="https://steamcommunity.com/dev/apikey>here</a>). The first time you use the script, if you're not already using <a href="https://www.steamgifts.com/discussion/riOvr/">Sighery's RaChart™ Enhancer</a>, you'll be prompted for your API key. After that, assuming you entered a valid key, the rest should work without needing to re-enter it. If there are problems, the script may prompt you to enter the API key again. I'm still working on making this as seamless as possible, but if you do hit an error, you will likely get hit with a bunch of alert pop-ups. Sorry!
 
-So far, I have only tested on Chrome with Tampermonkey. If you use the script under other configurations, please let me know (whether there are issues or not!) so I can make a note of it. Also, if you find any bug, problems, or miscellaneous weirdness, please report them on the <a href="https://github.com/Gaffi/SG-WL-Inventory/issues">GitHub issue log</a>.
+If you find any bug, problems, or miscellaneous weirdness, please report them on the <a href="https://github.com/Gaffi/SG-WL-Inventory/issues">GitHub issue log</a>.
 
 Thanks!
