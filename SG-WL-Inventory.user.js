@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         SteamGifts Inventory Checker
+// @name         SteamGifts Library Checker
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.08
+// @version      0.09
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon
@@ -28,7 +28,7 @@ var totalHave = 0;
 var wlCount = 0;
 var wlPages = 0;
 var gameTitle = null;
-var inventoryDiv;
+var libraryDiv;
 var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
 //var urlWishlist = 'http://steamcommunity.com/profiles/ ... /wishlist';
 //var searchWishlistHTML = 'wishlist_remove_ ..... ';
@@ -61,31 +61,42 @@ if (!Array.prototype.indexOf) {
 }
 
 window.onload = function() {
+	apiKey = localStorage.getItem('APIKey');
 	if (window.location.href.indexOf(urlSteamApp)>0) {
-		console.log('SteamGifts Inventory Checker Injecting Steam Store');
+		console.log('SteamGifts Library Checker Injecting Steam Store');
 		useSteam = true;
 		injectInterfaceSteam();
 	} else {
-		console.log('SteamGifts Inventory Checker Injecting SteamGifts');
+		console.log('SteamGifts Library Checker Injecting SteamGifts');
 		useSteam = false;
+		injectDialog();
+		injectDlgStyle();
 		injectInterfaceSG();
 	}
 };
 
 /**
  * Adds button to Steam store to run checking process
+ * Button placement taken from VonRaven at https://www.steamgifts.com/go/comment/MU3ojjL, http://pastebin.com/kRKv53uv
  */
 function injectInterfaceSteam() {
-    var refTarget;
-    refTarget = document.getElementsByClassName('apphub_OtherSiteInfo')[0];
+    var refTarget, refParent;
+    refTarget = document.getElementsByClassName('apphub_AppName')[0];  
+    refParent = document.getElementsByClassName('apphub_HeaderStandardTop')[0];
 
 	console.log('Creating button/progress bar on Steam store...');
-	inventoryDiv = document.createElement("DIV");
-    inventoryDiv.id = "whitelist_ownership_checker";
-    inventoryDiv.className = 'btnv6_blue_hoverfade btn_medium';
-    inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
-    refTarget.appendChild(inventoryDiv);
-    document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	libraryDiv = document.createElement("DIV");
+    libraryDiv.id = "whitelist_ownership_checker";
+    libraryDiv.className = 'btnv6_blue_hoverfade btn_medium';
+    libraryDiv.innerHTML = "<span>SG Check</span>";
+    
+	var libraryExtraDiv = document.createElement("DIV");
+	libraryExtraDiv.className = 'apphub_OtherSiteInfo';
+	libraryExtraDiv.style = 'margin-right:0.2em';
+	libraryExtraDiv.appendChild(libraryDiv);
+	refParent.insertBefore(libraryExtraDiv, refTarget);
+	document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+
 	
 	/*
 	* This section may be implemented later to allow for caching from Steam store. Cache is not shared between SG and Steam, however, and the nature of this process makes me want to avoid it.
@@ -96,14 +107,14 @@ function injectInterfaceSteam() {
 		}
 	}
 	*/
-	
+		
 	var curURL = window.location.href;
 	if (curURL.lastIndexOf('/')+1 != curURL.length) {
 		curURL += '/';
 	}
 	appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
 	getWLCounts(false);
-	console.log('Whitelist inventory button loaded without errors.');
+	console.log('Whitelist library button loaded without errors.');
 }
 
 /**
@@ -121,21 +132,290 @@ function injectInterfaceSG() {
     }
 
 	console.log('Creating button/progress bar on SteamGifts...');
-	inventoryDiv = document.createElement("DIV");
-    inventoryDiv.id = "whitelist_ownership_checker";
-    inventoryDiv.className = 'form__submit-button';
-    inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
-    refTarget.parentNode.appendChild(inventoryDiv);
-    document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	libraryDiv = document.createElement("DIV");
+    libraryDiv.id = "whitelist_ownership_checker";
+    libraryDiv.className = 'form__submit-button';
+    libraryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
+    refTarget.parentNode.appendChild(libraryDiv);
+	
+	libraryDiv.addEventListener('click', function() {
+			var blackbg = document.getElementById('black-background');
+			var dlg = document.getElementById('SGLCdlg');
+			blackbg.style.display = 'block';
+			dlg.style.display = 'block';
+
+			var winWidth = window.innerWidth;
+			var winHeight = window.innerHeight;
+
+			dlg.style.left = (winWidth/2) - 500/2 + 'px';
+			dlg.style.top = '150px';
+		});
+	
+    //document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
 	getWLCounts(true);
-	console.log('Whitelist inventory button loaded without errors.');
+	console.log('Whitelist library button loaded without errors.');
 }
+
+/**
+ * Adds hidden display to SteamGifts to review results/kickoff checking process
+ * Taken from Sighery's RaCharts Enhancer
+ */
+function injectDialog() {
+    var dlg = document.createElement('div');
+    dlg.setAttribute('id', 'black-background');
+	var dlgMainDiv = document.createElement('div');
+    dlg.appendChild(dlgMainDiv);
+    document.body.insertBefore(dlg, document.body.children[0]);
+
+    dlgMainDiv.setAttribute('id', 'SGLCdlg');
+	var dlgHeader = document.createElement('div');
+    dlgMainDiv.appendChild(dlgHeader);
+
+    dlgHeader.setAttribute('id', 'dlg-header');
+	var dlgHdrSecDiv = document.createElement('div');
+    dlgHeader.appendChild(dlgHdrSecDiv);
+    dlgHdrSecDiv.setAttribute('id', 'dlg-header-title');
+    dlgHdrSecDiv.innerHTML = "Gaffi's SteamGifts Library Checker";
+	
+	var dlgHdrBttn = document.createElement('button');
+    dlgHeader.appendChild(dlgHdrBttn);
+    dlgHdrBttn.setAttribute('id', 'closeSGLC');
+	
+	dlgHdrBttn.addEventListener('click', function() {
+        var blackbg = document.getElementById('black-background');
+        var dlg = document.getElementById('SGLCdlg');
+
+        blackbg.style.display = 'none';
+        dlg.style.display = 'none';
+    });
+	
+	var dlgHdrBttnI = document.createElement('i');
+    dlgHdrBttn.appendChild(dlgHdrBttnI);
+    dlgHdrBttnI.setAttribute('class', 'fa fa-times');
+    dlgHdrBttnI.style.fontSize = "25px";
+    dlgHdrBttnI.style.marginTop = "-6px";
+
+	
+	var dlgBody = document.createElement('div');
+    dlgMainDiv.appendChild(dlgBody);
+    dlgBody.setAttribute('id', 'dlg-body');
+	
+    var dlgTable = document.createElement('table');
+	dlgTable.setAttribute('style', 'width: 100%');
+	
+    var rowAPIKey = dlgTable.insertRow(0);
+    var rowAPIKeyLabel = rowAPIKey.insertCell(0);
+	var rowAPIKeyValue = rowAPIKey.insertCell(1);
+	var rowAppID = dlgTable.insertRow(1);
+    var rowAppIDLabel = rowAppID.insertCell(0);
+	var rowAppIDValue = rowAppID.insertCell(1);
+	var rowGameName = dlgTable.insertRow(2);
+    var rowGameNameLabel = rowGameName.insertCell(0);
+	var rowGameNameResult = rowGameName.insertCell(1);
+	var rowButtons = dlgTable.insertRow(3);
+    var rowButtonsCheck = rowButtons.insertCell(0);
+	var rowButtonsProgress = rowButtons.insertCell(1);
+	
+	dlgBody.appendChild(dlgTable);
+	
+	var dlgAPILab = document.createElement('label');
+    rowAPIKeyLabel.appendChild(dlgAPILab);
+    dlgAPILab.htmlFor = "APIKey";
+    dlgAPILab.innerHTML = "API Key:";
+	var dlgAPIInput = document.createElement('input');
+    rowAPIKeyValue.appendChild(dlgAPIInput);
+    dlgAPIInput.type = "textarea";
+	dlgAPIInput.style.float = "right";
+    dlgAPIInput.setAttribute('id', 'APIKey');
+    dlgAPIInput.style.marginLeft = "35px";
+    dlgAPIInput.style.width = "240px";
+    dlgAPIInput.style.lineHeight = "inherit";
+	dlgAPIInput.value = apiKey;
+  
+	var dlgAppIDLab = document.createElement('label');
+    rowAppIDLabel.appendChild(dlgAppIDLab);
+    dlgAppIDLab.htmlFor = "SGLCdlg-AppID";
+    dlgAppIDLab.innerHTML = "App ID:";
+	var dlgAppIDInput = document.createElement('input');
+    rowAppIDValue.appendChild(dlgAppIDInput);
+    dlgAppIDInput.type = "textarea";
+	dlgAppIDInput.style.float = "right";
+    dlgAppIDInput.setAttribute('id', 'SGLCdlg-AppID');
+    dlgAppIDInput.style.marginLeft = "35px";
+    dlgAppIDInput.style.width = "240px";
+    dlgAppIDInput.style.lineHeight = "inherit";
+	
+	var dlgGameNameLab = document.createElement('label');
+    rowGameNameLabel.appendChild(dlgGameNameLab);
+    dlgGameNameLab.htmlFor = "SGLCdlg-GameName";
+    dlgGameNameLab.innerHTML = "Game Name:";
+	var dlgGameNameResult = document.createElement('input');
+    rowGameNameResult.appendChild(dlgGameNameResult);
+    dlgGameNameResult.type = "textarea";
+	dlgGameNameResult.style.float = "right";
+	dlgGameNameResult.readOnly = true;
+    dlgGameNameResult.setAttribute('id', 'SGLCdlg-GameName');
+    dlgGameNameResult.style.marginLeft = "35px";
+    dlgGameNameResult.style.width = "240px";
+    dlgGameNameResult.style.lineHeight = "inherit";
+	
+	dlgBody.appendChild(document.createElement('br'));
+	dlgBody.appendChild(document.createElement('br'));
+
+	var dlgCheckBttn = document.createElement('button');
+    dlgBody.appendChild(dlgCheckBttn);
+	dlgCheckBttn.setAttribute('id', 'SGLCdlg-checkbutton');
+    dlgCheckBttn.setAttribute('class', 'SGLCdlg-button');
+	dlgCheckBttn.setAttribute('style', 'float:left;');
+    dlgCheckBttn.innerHTML = "Check it!";
+	dlgCheckBttn.addEventListener('click', function() {
+        var input = document.getElementById('APIKey');
+        localStorage.setItem(input.id, input.value);
+		checkWL();
+    });
+	rowButtonsCheck.appendChild(dlgCheckBttn);
+		
+	var dlgProgress = document.createElement('button');
+    dlgBody.appendChild(dlgProgress);
+    dlgProgress.setAttribute('id', 'SGLCdlg-progress');
+	dlgProgress.setAttribute('class', 'SGLCdlg-button');
+	dlgProgress.setAttribute('style','display:none;float:right;');
+    dlgProgress.innerHTML = "";
+	rowButtonsProgress.appendChild(dlgProgress);
+	
+	var dlgOutputTxt = document.createElement('textarea'); 
+	dlgOutputTxt.setAttribute('rows','10');
+	dlgOutputTxt.setAttribute('cols','50');
+	dlgOutputTxt.setAttribute('id', 'SGLCdlg-output');
+	dlgBody.appendChild(dlgOutputTxt);
+	
+	dlgBody.appendChild(document.createElement('br'));
+
+	var dlgCacheBttn = document.createElement('button');
+    dlgBody.appendChild(dlgCacheBttn);
+	dlgCacheBttn.setAttribute('id', 'SGLCdlg-cachebutton');
+    dlgCacheBttn.setAttribute('class', 'SGLCdlg-button');
+	dlgCacheBttn.setAttribute('style', 'float:left;');
+    dlgCacheBttn.innerHTML = "Reset Cache";
+	dlgCacheBttn.addEventListener('click', function() {
+        var input = document.getElementById('APIKey');
+        localStorage.removeItem(keyStorageOwnData);
+		localStorage.removeItem(keyStorageWishData);
+		localStorage.removeItem(keyStorageOwnData);
+    });
+	
+	dlgBody.appendChild(document.createElement('br'));
+	
+	var dlgInfo = document.createElement('h2');
+    dlgBody.appendChild(dlgInfo);
+    dlgInfo.style.float = "right";
+	var dlgInfoA = document.createElement('a');
+    dlgInfo.appendChild(dlgInfoA);
+    dlgInfoA.href = "https://www.steamgifts.com/discussion/HipoH/";
+    dlgInfoA.style.color = "#FFFFFF";
+    dlgInfoA.style.fontSize = "20px";
+    dlgInfoA.style.fontStyle = "italic";
+    dlgInfoA.style.textDecoration = "underline";
+    dlgInfoA.innerHTML = "Info";
+	
+	dlgBody.appendChild(document.createElement('br'));
+
+}
+
+/**
+ * Adds styles to SteamGifts to review results
+ * Taken from Sighery's RaCharts Enhancer
+ */
+function injectDlgStyle() {
+    var dialogCSS = [
+            "#black-background {",
+            "  display: none;",
+            "  width: 100%;",
+            "  height: 100%;",
+            "  position: fixed;",
+            "  top: 0px;",
+            "  left: 0px;",
+            "  background-color: rgba(0, 0, 0, 0.75);",
+            "  z-index: 8888;",
+            "}",
+            "#SGLCdlg{",
+            "  display: none;",
+            "  position: fixed;",
+            "  width: 500px;",
+            "  z-index: 9999;",
+            "  border-radius: 10px;",
+            "  background-color: #7c7d7e;",
+            "}",
+            "#dlg-header {",
+            "  background-color: #6D84B4;",
+            "  padding: 10px;",
+            "  padding-bottom: 30px;",
+            "  margin: 10px 10px 10px 10px;",
+            "  color: white;",
+            "  font-size: 20px;",
+            "}",
+            "#dlg-header-title {",
+            "  float: left;",
+            "}",
+            "#dlg-body{",
+            "  clear: both;",
+            "  background-color: #C3C3C3;",
+            "  color: white;",
+            "  font-size: 14px;",
+            "  padding: 10px;",
+            "  margin: 0px 10px 10px 10px;",
+            "}",
+            "#closeSGLC {",
+            "  background-color: transparent;",
+            "  color: white;",
+            "  float: right;",
+            "  border: none;",
+            "  font-size: 25px;",
+            "  margin-top: -5px;",
+            "  opacity: 0.7;",
+            "}",
+            ".SGLCdlg-button{",
+            "  background-color: #fff;",
+            "  border: 2px solid #333;",
+            "  box-shadow: 1px 1px 0 #333,",
+            "              2px 2px 0 #333,",
+            "              3px 3px 0 #333,",
+            "              4px 4px 0 #333,",
+            "              5px 5px 0 #333;",
+            "  color: #333;",
+            "  display: inline-block;",
+            "  padding: 4px 6px;",
+            "  position: relative;",
+            "  text-decoration: none;",
+            "  text-transform: uppercase;",
+            "  -webkit-transition: .1s;",
+            "     -moz-transition: .1s;",
+            "      -ms-transition: .1s;",
+            "       -o-transition: .1s;",
+            "          transition: .1s;",
+            "}",
+            ".SGLCdlg-button:hover,",
+            ".SGLCdlg-button:focus {",
+            "  background-color: #edd;",
+            "}",
+            ".SGLCdlg-button:active {",
+            "  box-shadow: 1px 1px 0 #333;",
+            "  left: 4px;",
+            "  top: 4px;",
+            "}",
+    ].join("\n");
+    var node = document.createElement('style');
+    node.type = "text/css";
+    node.appendChild(document.createTextNode(dialogCSS));
+    document.getElementsByTagName('head')[0].appendChild(node);
+}
+
 
 /**
  * Kicks off checking routine, initiated by button click on user interface.
  */
 function checkWL() {
-	console.log('Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
+	console.log('SG User Data Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
 	var user_own_data = localStorage.getItem(keyStorageOwnData);
 	var user_wish_data = localStorage.getItem(keyStorageWishData);
 
@@ -154,10 +434,7 @@ function checkWL() {
 			USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
 		}
 	}
-	
-	
-	apiKey = localStorage.getItem('APIKey');
-	
+		
 	if(!apiKey) {
 		apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:\n\n(You can get/generate your API key here: https://steamcommunity.com/dev/apikey)", "https://steamcommunity.com/dev/apikey");
 		if(apiKey) {
@@ -169,7 +446,8 @@ function checkWL() {
 		totalHave = 0;
 
 		if (!useSteam) {
-			appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
+			appInput = document.getElementById('SGLCdlg-AppID').value;
+			//appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
 		}
 
 		if (appInput) {
@@ -244,7 +522,14 @@ function importJSONSteamGameDetail(appID) {
 					console.log("Uncaught error: " + e.name + " -- " + e.message);
 				}
 				if (jsonFile) {
-					gameTitle = jsonFile[appID.toString()].data.name;
+					try {gameTitle = jsonFile[appID.toString()].data.name;} catch(e) {
+						wlCount = 0;
+						totalScanned = wlCount;
+					}
+					console.log('Game Title: ' + gameTitle);
+					if (!useSteam && document.getElementById('SGLCdlg-GameName').value.length == 0) {
+						document.getElementById('SGLCdlg-GameName').value = gameTitle;
+					}
 				}
 			}
 		},
@@ -274,7 +559,7 @@ function importJSONSteamUserDetail(steamID, appID) {
 						if (apiKey) {
 							var badAPIMsg = "Unexpected token < in JSON";
 							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
-								// Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
+								// Clear API values to prevent more calls to API.
 								processCount(2);
 								console.log('Data error, likely bad API key.');
 								localStorage.removeItem('APIKey');
@@ -287,13 +572,6 @@ function importJSONSteamUserDetail(steamID, appID) {
 					if (jsonFile) {
 						addUserToJSON(JSON.parse(response.responseText), steamID);
 						readStoredOwnershipData(steamID, appID);
-						/*if (findGameInJSON(JSON.parse(response.responseText),appID)) {
-							processCount(1);
-							//Has game
-						} else {
-							processCount(0);
-							//Does not have game
-						}*/
 					}
 				}
             },
@@ -325,7 +603,7 @@ function importJSONSteamUserDetailSingleGame(steamID, appids_filter) {
 						if (apiKey) {
 							var badAPIMsg = "Unexpected token < in JSON";
 							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
-								// Clear API values to prevent more calls to API. Some will still get through, so hold off on alerting user until after process done.
+								// Clear API values to prevent more calls to API.
 								processCount(2);
 								localStorage.removeItem('APIKey');
 								apiKey = null;
@@ -372,37 +650,42 @@ function checkHasGame(row, appID) {
         method: "GET",
         url: 'https://www.steamgifts.com/user/' + row.getElementsByClassName('table__column__heading')[0].innerHTML,
         onload: function(response) {
-            var tempElem = document.createElement("div");
-            tempElem.style.display = "none";
-            tempElem.innerHTML = response.responseText;
-			var steamIDdivhtml = tempElem.getElementsByClassName("sidebar__shortcut-inner-wrap")[0].innerHTML;
-			var searchString1 = 'href="http://steamcommunity.com/profiles/';
-			var searchString2 = '" data-tooltip=';
-            var steamID = steamIDdivhtml.slice(steamIDdivhtml.indexOf(searchString1)+searchString1.length,steamIDdivhtml.indexOf(searchString2));
-			if (!gameTitle) {
-				importJSONSteamGameDetail(appID);
-			}
-            if (steamID.length > 0) {
-				console.log('Checking stored data for ' + steamID);
-				var haveUser = false;
-				for (var i = 0; i < USER_OWN_DATA.whitelistusers.length; i++) {
-					if (USER_OWN_DATA.whitelistusers[i].userID == steamID) {
-						haveUser = true;
-						break;
+			if (totalScanned < wlCount) {
+				var tempElem = document.createElement("div");
+				tempElem.style.display = "none";
+				tempElem.innerHTML = response.responseText;
+				var steamIDdivhtml = tempElem.getElementsByClassName("sidebar__shortcut-inner-wrap")[0].innerHTML;
+				var searchString1 = 'href="http://steamcommunity.com/profiles/';
+				var searchString2 = '" data-tooltip=';
+				var steamID = steamIDdivhtml.slice(steamIDdivhtml.indexOf(searchString1)+searchString1.length,steamIDdivhtml.indexOf(searchString2));
+				if (!gameTitle) {
+					importJSONSteamGameDetail(appID);
+				}
+				if (steamID.length > 0) {
+					console.log('Checking stored data for ' + steamID);
+					var haveUser = false;
+					for (var i = 0; i < USER_OWN_DATA.whitelistusers.length; i++) {
+						if (USER_OWN_DATA.whitelistusers[i].userID == steamID) {
+							haveUser = true;
+							break;
+						}
+					}
+					if (!haveUser) {
+						console.log('Do not have user stored - checking API data for ' + steamID);
+						importJSONSteamUserDetail(steamID, appID);
+					} else {
+						console.log('Already have user stored for ' + steamID + '. Not checking API.');
+						readStoredOwnershipData(steamID, appID);
 					}
 				}
-				if (!haveUser) {
-					console.log('Do not have user stored - checking API data for ' + steamID);
-					importJSONSteamUserDetail(steamID, appID);
+			
+				if (useSteam) {
+					libraryDiv.innerHTML = "<span>Checking libraries: " + (100*totalScanned/wlCount).toFixed(1) + "%</span>";
 				} else {
-					console.log('Already have user stored for ' + steamID + '. Not checking API.');
-					readStoredOwnershipData(steamID, appID);
+					var dlgProgress = document.getElementById('SGLCdlg-progress');
+					dlgProgress.setAttribute('style','display:block;float:right;');
+					dlgProgress.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/wlCount).toFixed(1) + '%';
 				}
-			}
-			if (useSteam) {
-				inventoryDiv.innerHTML = "<span>Checking inventories: " + (100*totalScanned/wlCount).toFixed(1) + "%</span>";
-			} else {
-				inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Checking inventories: " + (100*totalScanned/wlCount).toFixed(1) + '%';
 			}
         }
     });
@@ -427,7 +710,7 @@ function processCount(hasGame) {
             break;
 	}
 	console.log("Processing " + totalScanned + " out of " + wlCount + " total whitelisted users");
-	if (totalScanned == wlCount) {
+	if (totalScanned >= wlCount) {
 		wrapUp();
 	}
 }
@@ -445,11 +728,21 @@ function wrapUp() {
 	if (!apiKey) {
 		prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
 	}
-	alert('Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).');
-	if (useSteam) {
-		inventoryDiv.innerHTML = "<span>Check SteamGifts game ownership</span>";
-	} else {
-		inventoryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
+	
+	if ((LAST_UPDATED < cacheDate || LAST_UPDATED === null) && !useSteam) {
+		localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
+	}
+	
+	if (wlCount > 0) {
+		if (useSteam) {
+			libraryDiv.innerHTML = "<span>SG♥: " + totalHave + "/" + totalScanned + " (" + Number((100*totalHave/totalScanned).toFixed(2)) + "%)</span>";
+		} else {
+			document.getElementById('SGLCdlg-GameName').value = gameTitle;
+			document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
+			document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
+		}
+	} else if (useSteam) {
+		libraryDiv.innerHTML = "<span>SG Check</span>";
 	}
 }
 
@@ -509,11 +802,12 @@ function readStoredOwnershipData(steamID, appID){
 	var userData = findUserInJSON(USER_OWN_DATA.whitelistusers, steamID);
 	if (userData) {
 		//console.log(userData);
-		var gameData = findGameInJSON(userData, appID);
+		var gameData = findGameInJSON(userData, appID, steamID);
 		if (gameData) {
-			console.log('User has game');
+			console.log('User ' + steamID + ' has game ' + appID + ' = True');
 			processCount(1);
 		} else {
+			console.log('User ' + steamID + ' has game ' + appID + ' = False');
 			processCount(0);
 		}
 	} else {
@@ -547,7 +841,7 @@ function findUserInJSON(JSONArray, steamID) {
  * @param {Number} appID - Steam game ID to check ownership of
  * @return {boolean} hasGame - Result of searching for game in JSON data - true = owned, false = not owned
  */
-function findGameInJSON(JSONArray, appID) {
+function findGameInJSON(JSONArray, appID, steamID) {
 	var canReadGames = true;
 	var hasGame = false;
 	try{
@@ -558,13 +852,13 @@ function findGameInJSON(JSONArray, appID) {
 	if (canReadGames) {
 		for (var i = 0; i < JSONArray.length; i++) {
 			if (JSONArray[i] == appID) {
-				console.log('User has game');
+				console.log('User ' + steamID + ' has game ' + appID + ' = True');
 				hasGame = true;
 				return hasGame;
 			}
 		}
 	}
-	console.log('User does not have game');
+	console.log('User ' + steamID + ' has game ' + appID + ' = False');
     return hasGame;
 }
 
@@ -585,7 +879,6 @@ function addUserToJSON(newJSON, steamID) {
 		}
 	}
 	if (!alreadyHave) {
-		localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
 		if (newJSON.response.games) {
 			console.log("No data for " + steamID + ", but we have games to add. Adding to pre-load (JSON).");
 			var tempJSON = JSON.parse('{"userID":' + steamID + ',"userData":[]}');
