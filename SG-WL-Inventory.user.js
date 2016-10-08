@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Library Checker
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.09
+// @version      0.10
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon
@@ -34,6 +34,7 @@ var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
 //var searchWishlistHTML = 'wishlist_remove_ ..... ';
 var urlSteamApp = 'store.steampowered.com/app/';
 var useSteam = false;
+var startedWrapUp = false;
 
 var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
 var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
@@ -521,15 +522,15 @@ function importJSONSteamGameDetail(appID) {
 					var badAPIMsg = "Unexpected token < in JSON";
 					console.log("Uncaught error: " + e.name + " -- " + e.message);
 				}
-				if (jsonFile) {
-					try {gameTitle = jsonFile[appID.toString()].data.name;} catch(e) {
-						wlCount = 0;
-						totalScanned = wlCount;
-					}
+				if (jsonFile[appID.toString()]["success"]) {
+					gameTitle = jsonFile[appID.toString()].data.name;
 					console.log('Game Title: ' + gameTitle);
 					if (!useSteam && document.getElementById('SGLCdlg-GameName').value.length == 0) {
 						document.getElementById('SGLCdlg-GameName').value = gameTitle;
 					}
+				} else {
+					wlCount = 0;
+					totalScanned = 0;				
 				}
 			}
 		},
@@ -543,7 +544,7 @@ function importJSONSteamGameDetail(appID) {
  */
 function importJSONSteamUserDetail(steamID, appID) {
     'use strict';
-    if (apiKey) {
+    if (apiKey && totalScanned < wlCount) {
         var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
 		//console.log(link);
         var jsonFile;
@@ -576,7 +577,9 @@ function importJSONSteamUserDetail(steamID, appID) {
 				}
             },
         });
-    } else { processCount(2);}
+    } else { 
+		processCount(2);
+	}
 }
 
 /**
@@ -686,6 +689,8 @@ function checkHasGame(row, appID) {
 					dlgProgress.setAttribute('style','display:block;float:right;');
 					dlgProgress.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/wlCount).toFixed(1) + '%';
 				}
+			} else {
+				processCount(2);
 			}
         }
     });
@@ -696,21 +701,24 @@ function checkHasGame(row, appID) {
  * @param {Number} hasGame - Ownership status with three possible values: 0 = does not have game, 1 = has game, 2 = error in checking
  */
 function processCount(hasGame) {
-	totalScanned += 1;
-	switch (hasGame) {
-        case 0:
-            //Does not have game.
-            break;
-        case 1:
-			//Has game.
-			totalHave +=1;
-            break;
-        case 2:
-			//Bad data or API Key!
-            break;
+	if (wlCount > 0) {
+		totalScanned += 1;
+		console.log("Processing " + totalScanned + " out of " + wlCount + " total whitelisted users");
+		switch (hasGame) {
+			case 0:
+				//Does not have game.
+				break;
+			case 1:
+				//Has game.
+				totalHave +=1;
+				break;
+			case 2:
+				//Bad data or API Key!
+				break;
+		}
 	}
-	console.log("Processing " + totalScanned + " out of " + wlCount + " total whitelisted users");
 	if (totalScanned >= wlCount) {
+		console.log('Wrapping up... If this is an early termination, async calls may post multiple times.');
 		wrapUp();
 	}
 }
@@ -719,30 +727,39 @@ function processCount(hasGame) {
 * Finalize data, output, and storage.
 */
 function wrapUp() {
-	if (!useSteam) {
-		console.log('Finishing up... writing user data to localStorage');
-		localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
-	} else {
-		console.log('Finishing up... ran from Steam, so not writing user data to localStorage');
-	}
-	if (!apiKey) {
-		prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
-	}
-	
-	if ((LAST_UPDATED < cacheDate || LAST_UPDATED === null) && !useSteam) {
-		localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
-	}
-	
-	if (wlCount > 0) {
-		if (useSteam) {
-			libraryDiv.innerHTML = "<span>SG♥: " + totalHave + "/" + totalScanned + " (" + Number((100*totalHave/totalScanned).toFixed(2)) + "%)</span>";
+	if (!startedWrapUp) {
+		startedWrapUp = true;
+		if (!useSteam) {
+			console.log('Finishing up... writing user data to localStorage');
+			localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
 		} else {
-			document.getElementById('SGLCdlg-GameName').value = gameTitle;
-			document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
-			document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
+			console.log('Finishing up... ran from Steam, so not writing user data to localStorage');
 		}
-	} else if (useSteam) {
-		libraryDiv.innerHTML = "<span>SG Check</span>";
+		if (!apiKey) {
+			prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
+		}
+		
+		if ((LAST_UPDATED < cacheDate || LAST_UPDATED === null) && !useSteam) {
+			localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
+		}
+		
+		if (wlCount > 0) {
+			if (useSteam) {
+				libraryDiv.innerHTML = "<span>SG♥: " + totalHave + "/" + totalScanned + " (" + Number((100*totalHave/totalScanned).toFixed(2)) + "%)</span>";
+			} else {
+				document.getElementById('SGLCdlg-GameName').value = gameTitle;
+				document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
+				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
+			}
+		} else {
+			if (useSteam) {
+				libraryDiv.innerHTML = "<span>SG Check</span>";
+			} else {
+				document.getElementById('SGLCdlg-GameName').value = gameTitle;
+				document.getElementById('SGLCdlg-output').value = 'There was either an error loading the whitelist or the game data from Steam. Please try again.';
+				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
+			}
+		}
 	}
 }
 
@@ -765,32 +782,36 @@ function getWLRows(curHTML) {
  * @param {Number} currentPage - The current page to scan. This increments each iteration of the recursion until it reaches the last page.
  */
 function readAllWLPages(currentURL, currentPage) {
-	var newPage = parseInt(currentPage);
-	var checkURL = currentURL + currentPage;
-	console.log('Scanning WL [' + checkURL + '] for user list');
-	GM_xmlhttpRequest({
-		method: "GET",
-		url: checkURL,
-		onload: function(response) {
-			if (response){
-				var lastPage = wlPages;//getLastPageOfWL(response.responseText);
-				var lastURL = currentURL + lastPage;
-				if (lastPage >= currentPage) {
-					console.log(currentPage + '/' + lastPage);
-					if (apiKey) {
-						var rows = getWLRows(response.responseText);
-						var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
-						for (var i = 0; i < rows.length; i++) {
-							checkHasGame(rows[i], appID);
+	if (totalScanned < wlCount) {
+		var newPage = parseInt(currentPage);
+		var checkURL = currentURL + currentPage;
+		console.log('Scanning WL [' + checkURL + '] for user list');
+		GM_xmlhttpRequest({
+			method: "GET",
+			url: checkURL,
+			onload: function(response) {
+				if (response){
+					var lastPage = wlPages;//getLastPageOfWL(response.responseText);
+					var lastURL = currentURL + lastPage;
+					if (lastPage >= currentPage) {
+						console.log(currentPage + '/' + lastPage);
+						if (apiKey) {
+							var rows = getWLRows(response.responseText);
+							var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
+							for (var i = 0; i < rows.length; i++) {
+								checkHasGame(rows[i], appID);
+							}
 						}
+						readAllWLPages(currentURL, newPage + 1);
 					}
-					readAllWLPages(currentURL, newPage + 1);
+				} else {
+					console.log('Error loading WL page...');
 				}
-			} else {
-				console.log('Error loading WL page...');
 			}
-		}
-	});
+		});
+	} else {
+		processCount(2);
+	}
 }
 
 /**
