@@ -25,7 +25,7 @@ var apiKey = null;
 var appInput = null;
 var totalScanned = 0;
 var totalHave = 0;
-var wlCount = 0;
+var countToCheck = 0;
 var wlPages = 0;
 var gameTitle = null;
 var libraryDiv;
@@ -35,6 +35,8 @@ var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
 var urlSteamApp = 'store.steampowered.com/app/';
 var useSteam = false;
 var startedWrapUp = false;
+var groupInput = null;
+var groupIDList = [];
 
 var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
 var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
@@ -96,7 +98,7 @@ function injectInterfaceSteam() {
 	libraryExtraDiv.style = 'margin-right:0.2em';
 	libraryExtraDiv.appendChild(libraryDiv);
 	refParent.insertBefore(libraryExtraDiv, refTarget);
-	document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
+	document.getElementById('whitelist_ownership_checker').addEventListener('click', startCheck, false);
 
 	
 	/*
@@ -140,20 +142,19 @@ function injectInterfaceSG() {
     refTarget.parentNode.appendChild(libraryDiv);
 	
 	libraryDiv.addEventListener('click', function() {
-			var blackbg = document.getElementById('black-background');
-			var dlg = document.getElementById('SGLCdlg');
-			blackbg.style.display = 'block';
-			dlg.style.display = 'block';
+		var blackbg = document.getElementById('black-background');
+		var dlg = document.getElementById('SGLCdlg');
+		blackbg.style.display = 'block';
+		dlg.style.display = 'block';
 
-			var winWidth = window.innerWidth;
-			var winHeight = window.innerHeight;
+		var winWidth = window.innerWidth;
+		var winHeight = window.innerHeight;
 
-			dlg.style.left = (winWidth/2) - 500/2 + 'px';
-			dlg.style.top = '150px';
-		});
-	
-    //document.getElementById('whitelist_ownership_checker').addEventListener('click', checkWL, false);
-	getWLCounts(true);
+		dlg.style.left = (winWidth/2) - 500/2 + 'px';
+		dlg.style.top = '150px';
+	});
+
+	//getWLCounts(true);
 	console.log('Whitelist library button loaded without errors.');
 }
 
@@ -172,10 +173,10 @@ function injectDialog() {
 	var dlgHeader = document.createElement('div');
     dlgMainDiv.appendChild(dlgHeader);
 
-    dlgHeader.setAttribute('id', 'dlg-header');
+    dlgHeader.setAttribute('id', 'SGLCdlg-header');
 	var dlgHdrSecDiv = document.createElement('div');
     dlgHeader.appendChild(dlgHdrSecDiv);
-    dlgHdrSecDiv.setAttribute('id', 'dlg-header-title');
+    dlgHdrSecDiv.setAttribute('id', 'SGLCdlg-header-title');
     dlgHdrSecDiv.innerHTML = "Gaffi's SteamGifts Library Checker";
 	
 	var dlgHdrBttn = document.createElement('button');
@@ -199,7 +200,7 @@ function injectDialog() {
 	
 	var dlgBody = document.createElement('div');
     dlgMainDiv.appendChild(dlgBody);
-    dlgBody.setAttribute('id', 'dlg-body');
+    dlgBody.setAttribute('id', 'SGLCdlg-body');
 	
     var dlgTable = document.createElement('table');
 	dlgTable.setAttribute('style', 'width: 100%');
@@ -213,7 +214,13 @@ function injectDialog() {
 	var rowGameName = dlgTable.insertRow(2);
     var rowGameNameLabel = rowGameName.insertCell(0);
 	var rowGameNameResult = rowGameName.insertCell(1);
-	var rowButtons = dlgTable.insertRow(3);
+	var rowGroupID = dlgTable.insertRow(3);
+    var rowGroupIDLabel = rowGroupID.insertCell(0);
+	var rowGroupIDResult = rowGroupID.insertCell(1);
+	var rowGroupName = dlgTable.insertRow(4);
+    var rowGroupNameBttn = rowGroupName.insertCell(0);
+	var rowGroupNameResult = rowGroupName.insertCell(1);
+	var rowButtons = dlgTable.insertRow(5);
     var rowButtonsCheck = rowButtons.insertCell(0);
 	var rowButtonsProgress = rowButtons.insertCell(1);
 	
@@ -226,11 +233,8 @@ function injectDialog() {
 	var dlgAPIInput = document.createElement('input');
     rowAPIKeyValue.appendChild(dlgAPIInput);
     dlgAPIInput.type = "textarea";
-	dlgAPIInput.style.float = "right";
     dlgAPIInput.setAttribute('id', 'APIKey');
-    dlgAPIInput.style.marginLeft = "35px";
-    dlgAPIInput.style.width = "240px";
-    dlgAPIInput.style.lineHeight = "inherit";
+	dlgAPIInput.setAttribute('class', 'SGLCdlg-input-enabled input');
 	dlgAPIInput.value = apiKey;
   
 	var dlgAppIDLab = document.createElement('label');
@@ -240,11 +244,8 @@ function injectDialog() {
 	var dlgAppIDInput = document.createElement('input');
     rowAppIDValue.appendChild(dlgAppIDInput);
     dlgAppIDInput.type = "textarea";
-	dlgAppIDInput.style.float = "right";
     dlgAppIDInput.setAttribute('id', 'SGLCdlg-AppID');
-    dlgAppIDInput.style.marginLeft = "35px";
-    dlgAppIDInput.style.width = "240px";
-    dlgAppIDInput.style.lineHeight = "inherit";
+	dlgAppIDInput.setAttribute('class', 'SGLCdlg-input-enabled');
 	
 	var dlgGameNameLab = document.createElement('label');
     rowGameNameLabel.appendChild(dlgGameNameLab);
@@ -253,15 +254,42 @@ function injectDialog() {
 	var dlgGameNameResult = document.createElement('input');
     rowGameNameResult.appendChild(dlgGameNameResult);
     dlgGameNameResult.type = "textarea";
-	dlgGameNameResult.style.float = "right";
 	dlgGameNameResult.readOnly = true;
+	dlgGameNameResult.setAttribute('class', 'SGLCdlg-input-disabled input');
     dlgGameNameResult.setAttribute('id', 'SGLCdlg-GameName');
-    dlgGameNameResult.style.marginLeft = "35px";
-    dlgGameNameResult.style.width = "240px";
-    dlgGameNameResult.style.lineHeight = "inherit";
+
+	var dlgGroupIDLab = document.createElement('label');
+    rowGroupIDLabel.appendChild(dlgGroupIDLab);
+    dlgGroupIDLab.htmlFor = "SGLCdlg-GroupID";
+    dlgGroupIDLab.innerHTML = "Group ID" + '\n' + "(blank for whitelist):";
+	var dlgGroupIDResult = document.createElement('input');
+    rowGroupIDResult.appendChild(dlgGroupIDResult);
+    dlgGroupIDResult.type = "textarea";
+    dlgGroupIDResult.setAttribute('id', 'SGLCdlg-GroupID');
+	dlgGroupIDResult.setAttribute('class', 'SGLCdlg-input-enabled input');
 	
-	dlgBody.appendChild(document.createElement('br'));
-	dlgBody.appendChild(document.createElement('br'));
+	var dlgGroupBttn = document.createElement('button');
+    rowGroupNameBttn.appendChild(dlgGroupBttn);
+	dlgGroupBttn.setAttribute('id', 'SGLCdlg-groupbutton');
+    dlgGroupBttn.setAttribute('class', 'SGLCdlg-button');
+	dlgGroupBttn.setAttribute('style', 'float:left;');
+    dlgGroupBttn.innerHTML = "Load Group Data";
+	dlgGroupBttn.addEventListener('click', function() {
+		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
+			console.log('Group field not blank. Prompting user.');
+			document.getElementById('SGLCdlg-output').value = 'Cannot load blank group. Please use the format http://steamcommunity.com/groups/[[GROUP ID]]/ to populate.';
+		} else {
+			console.log('Group field not blank. Prepping group check.');
+			importXMLGroupMembers(document.getElementById('SGLCdlg-GroupID').value);
+			document.getElementById('SGLCdlg-output').value = '';
+		}
+    });
+	var dlgGroupNameResult = document.createElement('input');
+    rowGroupNameResult.appendChild(dlgGroupNameResult);
+    dlgGroupNameResult.type = "textarea";
+	dlgGroupNameResult.readOnly = true;
+    dlgGroupNameResult.setAttribute('id', 'SGLCdlg-GroupName');
+	dlgGroupNameResult.setAttribute('class', 'SGLCdlg-input-disabled input');
 
 	var dlgCheckBttn = document.createElement('button');
     dlgBody.appendChild(dlgCheckBttn);
@@ -272,7 +300,15 @@ function injectDialog() {
 	dlgCheckBttn.addEventListener('click', function() {
         var input = document.getElementById('APIKey');
         localStorage.setItem(input.id, input.value);
-		checkWL();
+		dlgGameNameResult.value = null;
+		dlgOutputTxt.value = null;
+		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
+			console.log('Group field blank. Prepping WL check.');
+			if (countToCheck === 0) {
+				getWLCounts(true);
+			} 
+		}
+		startCheck();
     });
 	rowButtonsCheck.appendChild(dlgCheckBttn);
 		
@@ -284,7 +320,10 @@ function injectDialog() {
     dlgProgress.innerHTML = "";
 	rowButtonsProgress.appendChild(dlgProgress);
 	
+	dlgBody.appendChild(document.createElement('br'));
+	
 	var dlgOutputTxt = document.createElement('textarea'); 
+	dlgOutputTxt.readOnly = true;
 	dlgOutputTxt.setAttribute('rows','10');
 	dlgOutputTxt.setAttribute('cols','50');
 	dlgOutputTxt.setAttribute('id', 'SGLCdlg-output');
@@ -347,7 +386,7 @@ function injectDlgStyle() {
             "  border-radius: 10px;",
             "  background-color: #7c7d7e;",
             "}",
-            "#dlg-header {",
+            "#SGLCdlg-header {",
             "  background-color: #6D84B4;",
             "  padding: 10px;",
             "  padding-bottom: 30px;",
@@ -355,10 +394,10 @@ function injectDlgStyle() {
             "  color: white;",
             "  font-size: 20px;",
             "}",
-            "#dlg-header-title {",
+            "#SGLCdlg-header-title {",
             "  float: left;",
             "}",
-            "#dlg-body{",
+            "#SGLCdlg-body{",
             "  clear: both;",
             "  background-color: #C3C3C3;",
             "  color: white;",
@@ -404,6 +443,19 @@ function injectDlgStyle() {
             "  left: 4px;",
             "  top: 4px;",
             "}",
+			".SGLCdlg-input-disabled {",
+			"  background-color: #ddd !important;",
+			"  float: right;",
+			"  margin-left: 35px;",
+			"  width: 200px;",
+			"  line-height: inherit !important;",
+			"}",
+			".SGLCdlg-input-enabled {",
+			"  float: right;",
+			"  margin-left: 35px;",
+			"  width: 200px;",
+			"  line-height: inherit !important;",
+			"}"
     ].join("\n");
     var node = document.createElement('style');
     node.type = "text/css";
@@ -411,12 +463,12 @@ function injectDlgStyle() {
     document.getElementsByTagName('head')[0].appendChild(node);
 }
 
-
 /**
- * Kicks off checking routine, initiated by button click on user interface.
+ * Kicks off checking routine, choosing between group and whitelist modes.
  */
-function checkWL() {
+function startCheck() {
 	console.log('SG User Data Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
+	startedWrapUp = false;
 	var user_own_data = localStorage.getItem(keyStorageOwnData);
 	var user_wish_data = localStorage.getItem(keyStorageWishData);
 
@@ -435,9 +487,12 @@ function checkWL() {
 			USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
 		}
 	}
-		
 	if(!apiKey) {
-		apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:\n\n(You can get/generate your API key here: https://steamcommunity.com/dev/apikey)", "https://steamcommunity.com/dev/apikey");
+		if (!useSteam) {
+			apiKey = document.getElementById('APIKey').value;
+		} else {
+			apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:\n\n(You can get/generate your API key here: https://steamcommunity.com/dev/apikey)", "https://steamcommunity.com/dev/apikey");
+		}
 		if(apiKey) {
 			localStorage.setItem('APIKey', apiKey);
 		}
@@ -445,15 +500,44 @@ function checkWL() {
 		gameTitle = null;
 		totalScanned = 0;
 		totalHave = 0;
-
-		if (!useSteam) {
-			appInput = document.getElementById('SGLCdlg-AppID').value;
-			//appInput = prompt("Please enter the Steam app ID:\n\n(This should be just the numeric value, not the name or Steam/store URL.)", "271590");
+	
+		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
+			checkWL();
+		} else {
+			checkGroup();
 		}
+	}
+}
 
-		if (appInput) {
-			console.log('Scanning ' + wlCount + ' total whitelisted users for game ' + appInput);
-			readAllWLPages(urlWhitelist + "/search?page=", 1);
+/**
+ * Kicks off whitelist checking routine.
+ */
+function checkWL() {
+	if (!useSteam) {
+		appInput = document.getElementById('SGLCdlg-AppID').value;
+	}
+
+	if (appInput) {
+		console.log('Scanning ' + countToCheck + ' total whitelisted users for game ' + appInput);
+		readAllWLPages(urlWhitelist + "/search?page=", 1);
+	}
+}
+
+/**
+ * Kicks off group checking routine.
+ */
+function checkGroup() {
+	appInput = document.getElementById('SGLCdlg-AppID').value;
+
+	if (appInput) {
+		if (!gameTitle) {
+			importJSONSteamGameDetail(appInput);
+		}
+		
+		console.log('Scanning ' + countToCheck + ' total members of [[' + groupInput + ']] for game ' + appInput);
+		for (var i = 0; i < groupIDList.length; i++) {
+			console.log('Checking group user ' + groupIDList[i] + ' for game ' + appInput);
+			importJSONSteamUserDetail(groupIDList[i], appInput);
 		}
 	}
 }
@@ -467,8 +551,8 @@ function getWLCounts(OnWLPage) {
 	var searchURL = 'href="/account/manage/whitelist/search?page=';
 	if (OnWLPage) {
 		// Read the whitelist page in place
-		wlCount = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-		if (wlCount<=25) {
+		countToCheck = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+		if (countToCheck<=25) {
 			wlPages = 1;
 		} else {
 			linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
@@ -487,8 +571,8 @@ function getWLCounts(OnWLPage) {
 					tempElem.style.display = "none";
 					tempElem.innerHTML = response.responseText;
 					//console.log(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-					wlCount = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-					if (wlCount<=25) {
+					countToCheck = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
+					if (countToCheck<=25) {
 						wlPages = 1;
 					} else {
 						linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
@@ -502,6 +586,46 @@ function getWLCounts(OnWLPage) {
 	}
 }
 
+/**
+ * Reads Steam API for group members.
+ * Using XML, which is depreciated, but I can't find documentation on a JSON example.
+ * @param {string} groupName - Steam group id to get members of
+ 
+ */
+function importXMLGroupMembers(groupName) {
+	// Format: http://steamcommunity.com/groups/<groupName>/memberslistxml/?xml=1
+	// Example: http://steamcommunity.com/groups/Valve/memberslistxml/?xml=1
+	if (groupIDList != []) {
+		var link = "http://steamcommunity.com/groups/" + groupName +"/memberslistxml/?xml=1"
+		console.log('Checking group page [' + link + '] for members.');
+		var xmlDoc;
+		GM_xmlhttpRequest ({
+			method: "GET",
+			url: link,
+			timeout: 5000,
+			onload: function(response) {
+				if (response){
+					if (window.DOMParser) {
+						var parser = new DOMParser();
+						xmlDoc = parser.parseFromString(response.responseText, "text/xml");
+					} else {// Internet Explorer
+						xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+						xmlDoc.async = false;
+						xmlDoc.loadXML(response.responseText);
+					}
+					groupInput = xmlDoc.getElementsByTagName("groupDetails")[0].getElementsByTagName('groupName')[0].firstChild.nodeValue;
+					document.getElementById('SGLCdlg-GroupName').value = groupInput;
+					var baseXMLData = xmlDoc.getElementsByTagName("members")[0].getElementsByTagName('steamID64');
+					countToCheck = baseXMLData.length;
+					for (i = 0; i < countToCheck; i++) {
+						groupIDList.push(baseXMLData[i].firstChild.nodeValue);
+					}
+				}
+			},
+		});
+	}
+}
+	
 /**
  * Reads Steam API for game details (game title)
  * @param {Number} appID - Steam game ID to check ownership of
@@ -525,11 +649,11 @@ function importJSONSteamGameDetail(appID) {
 				if (jsonFile[appID.toString()]["success"]) {
 					gameTitle = jsonFile[appID.toString()].data.name;
 					console.log('Game Title: ' + gameTitle);
-					if (!useSteam && document.getElementById('SGLCdlg-GameName').value.length == 0) {
+					if (!useSteam && document.getElementById('SGLCdlg-GameName').value.length === 0) {
 						document.getElementById('SGLCdlg-GameName').value = gameTitle;
 					}
 				} else {
-					wlCount = 0;
+					countToCheck = 0;
 					totalScanned = 0;				
 				}
 			}
@@ -543,10 +667,12 @@ function importJSONSteamGameDetail(appID) {
  * @param {Number} appID - Steam game ID to check ownership of
  */
 function importJSONSteamUserDetail(steamID, appID) {
-    'use strict';
-    if (apiKey && totalScanned < wlCount) {
+    // If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
+	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	// apiKey check here plays a similar role.
+    if (apiKey && countToCheck > 0 && steamID) {
         var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
-		//console.log(link);
+		console.log(link);
         var jsonFile;
         GM_xmlhttpRequest ({
             method: "GET",
@@ -562,7 +688,7 @@ function importJSONSteamUserDetail(steamID, appID) {
 							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
 								// Clear API values to prevent more calls to API.
 								processCount(2);
-								console.log('Data error, likely bad API key.');
+								console.log('Error loading user JSON!');
 								localStorage.removeItem('APIKey');
 								apiKey = null;
 							} else {
@@ -580,54 +706,6 @@ function importJSONSteamUserDetail(steamID, appID) {
     } else { 
 		processCount(2);
 	}
-}
-
-/**
- * Reads Steam API for user details (listing of all games, plus extra info). Does not write result to main user data for caching. Sends result to count summary for final output. This will likely be removed in a future update, currently never used/called.
- * @param {Number} steamID - Steam user ID to check ownership
- * @param {Number} appID - Steam game ID to check ownership of
- */
-function importJSONSteamUserDetailSingleGame(steamID, appids_filter) {
-    'use strict';
-    if (apiKey) {
-        var int_appids_filter = turnToIntArray(appids_filter);
-        var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + ',"appids_filter":' + JSON.stringify(int_appids_filter) + "}";
-		//console.log(link);
-        var jsonFile;
-        GM_xmlhttpRequest ({
-            method: "GET",
-            url: link,
-            timeout: 5000,
-            onload: function(response) {
-                if (response){
-                    try{
-                        jsonFile = JSON.parse(response.responseText);
-                    }catch(e){
-						if (apiKey) {
-							var badAPIMsg = "Unexpected token < in JSON";
-							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
-								// Clear API values to prevent more calls to API.
-								processCount(2);
-								localStorage.removeItem('APIKey');
-								apiKey = null;
-							} else {
-								console.log("Uncaught error: " + e.name + " -- " + e.message);
-							}
-						}
-                    }
-					if (jsonFile) {
-						if (jsonFile.response.game_count > 0) {
-							processCount(1);
-							//Has game
-						} else {
-							processCount(0);
-							//Does not have game
-						}
-					}
-				}
-            },
-        });
-    } else { processCount(2);}
 }
 
 /**
@@ -653,7 +731,9 @@ function checkHasGame(row, appID) {
         method: "GET",
         url: 'https://www.steamgifts.com/user/' + row.getElementsByClassName('table__column__heading')[0].innerHTML,
         onload: function(response) {
-			if (totalScanned < wlCount) {
+			// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
+			// Asnyc calls keep running, so this check appears mutliple times in the code.
+			if (countToCheck > 0 ) {
 				var tempElem = document.createElement("div");
 				tempElem.style.display = "none";
 				tempElem.innerHTML = response.responseText;
@@ -683,11 +763,11 @@ function checkHasGame(row, appID) {
 				}
 			
 				if (useSteam) {
-					libraryDiv.innerHTML = "<span>Checking libraries: " + (100*totalScanned/wlCount).toFixed(1) + "%</span>";
+					libraryDiv.innerHTML = "<span>Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + "%</span>";
 				} else {
 					var dlgProgress = document.getElementById('SGLCdlg-progress');
 					dlgProgress.setAttribute('style','display:block;float:right;');
-					dlgProgress.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/wlCount).toFixed(1) + '%';
+					dlgProgress.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + '%';
 				}
 			} else {
 				processCount(2);
@@ -701,9 +781,11 @@ function checkHasGame(row, appID) {
  * @param {Number} hasGame - Ownership status with three possible values: 0 = does not have game, 1 = has game, 2 = error in checking
  */
 function processCount(hasGame) {
-	if (wlCount > 0) {
+	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
+	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	if (countToCheck > 0) {
 		totalScanned += 1;
-		console.log("Processing " + totalScanned + " out of " + wlCount + " total whitelisted users");
+		console.log("Processing " + totalScanned + " out of " + countToCheck + " total users");
 		switch (hasGame) {
 			case 0:
 				//Does not have game.
@@ -717,7 +799,7 @@ function processCount(hasGame) {
 				break;
 		}
 	}
-	if (totalScanned >= wlCount) {
+	if (totalScanned >= countToCheck) {
 		console.log('Wrapping up... If this is an early termination, async calls may post multiple times.');
 		wrapUp();
 	}
@@ -727,7 +809,9 @@ function processCount(hasGame) {
 * Finalize data, output, and storage.
 */
 function wrapUp() {
+	console.log('Checking if already wrapped up...');
 	if (!startedWrapUp) {
+		console.log("...Not yet, so let's do it.");
 		startedWrapUp = true;
 		if (!useSteam) {
 			console.log('Finishing up... writing user data to localStorage');
@@ -743,20 +827,28 @@ function wrapUp() {
 			localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
 		}
 		
-		if (wlCount > 0) {
+		// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
+		// Asnyc calls keep running, so this check appears mutliple times in the code.
+		if (countToCheck > 0) {
+			console.log('Good whitelist count, normal output.');
 			if (useSteam) {
 				libraryDiv.innerHTML = "<span>SG♥: " + totalHave + "/" + totalScanned + " (" + Number((100*totalHave/totalScanned).toFixed(2)) + "%)</span>";
 			} else {
 				document.getElementById('SGLCdlg-GameName').value = gameTitle;
-				document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
 				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
+				if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
+					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
+				} else {
+					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + (totalScanned == 1 ? ' user ' : ' users ') + 'in group ' + document.getElementById('SGLCdlg-GroupName').value + ', ' + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
+				}
 			}
 		} else {
+			console.log('Whitelist count = 0, null output.');
 			if (useSteam) {
 				libraryDiv.innerHTML = "<span>SG Check</span>";
 			} else {
-				document.getElementById('SGLCdlg-GameName').value = gameTitle;
-				document.getElementById('SGLCdlg-output').value = 'There was either an error loading the whitelist or the game data from Steam. Please try again.';
+				document.getElementById('SGLCdlg-GameName').value = '<not loaded>';
+				document.getElementById('SGLCdlg-output').value = 'There was either an error loading the userlist or the game data from Steam. Please try again.';
 				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
 			}
 		}
@@ -782,7 +874,9 @@ function getWLRows(curHTML) {
  * @param {Number} currentPage - The current page to scan. This increments each iteration of the recursion until it reaches the last page.
  */
 function readAllWLPages(currentURL, currentPage) {
-	if (totalScanned < wlCount) {
+	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
+	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	if (countToCheck > 0) {
 		var newPage = parseInt(currentPage);
 		var checkURL = currentURL + currentPage;
 		console.log('Scanning WL [' + checkURL + '] for user list');
