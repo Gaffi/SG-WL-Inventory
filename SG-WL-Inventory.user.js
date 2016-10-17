@@ -6,8 +6,8 @@
 // @author       Gaffi
 // icon
 // @downloadURL  https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.user.js
-// @supportURL   https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
-// @supportURL   https://github.com/Gaffi/SG-WL-Inventory
+// @updateURL    https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
+// @supportURL   https://www.steamgifts.com/discussion/HipoH/
 // @match        https://www.steamgifts.com/account/manage/whitelist*
 // @match		 http://store.steampowered.com/app/*
 // @grant        GM_xmlhttpRequest
@@ -84,7 +84,7 @@ window.onload = function() {
  */
 function injectInterfaceSteam() {
     var refTarget, refParent;
-    refTarget = document.getElementsByClassName('apphub_AppName')[0];  
+    refTarget = document.getElementsByClassName('apphub_AppName')[0];
     refParent = document.getElementsByClassName('apphub_HeaderStandardTop')[0];
 
 	console.log('Creating button/progress bar on Steam store...');
@@ -92,7 +92,7 @@ function injectInterfaceSteam() {
     libraryDiv.id = "whitelist_ownership_checker";
     libraryDiv.className = 'btnv6_blue_hoverfade btn_medium';
     libraryDiv.innerHTML = "<span>SG Check</span>";
-    
+
 	var libraryExtraDiv = document.createElement("DIV");
 	libraryExtraDiv.className = 'apphub_OtherSiteInfo';
 	libraryExtraDiv.style = 'margin-right:0.2em';
@@ -100,7 +100,6 @@ function injectInterfaceSteam() {
 	refParent.insertBefore(libraryExtraDiv, refTarget);
 	document.getElementById('whitelist_ownership_checker').addEventListener('click', startCheck, false);
 
-	
 	/*
 	* This section may be implemented later to allow for caching from Steam store. Cache is not shared between SG and Steam, however, and the nature of this process makes me want to avoid it.
 	// Removing Steam's localStorage. This is surely not optimal, but Steam uses up as much localStorage as possible, so there is no way to cache unless we make some room.
@@ -110,7 +109,7 @@ function injectInterfaceSteam() {
 		}
 	}
 	*/
-		
+
 	var curURL = window.location.href;
 	if (curURL.lastIndexOf('/')+1 != curURL.length) {
 		curURL += '/';
@@ -140,7 +139,7 @@ function injectInterfaceSG() {
     libraryDiv.className = 'form__submit-button';
     libraryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
     refTarget.parentNode.appendChild(libraryDiv);
-	
+
 	libraryDiv.addEventListener('click', function() {
 		var blackbg = document.getElementById('black-background');
 		var dlg = document.getElementById('SGLCdlg');
@@ -178,11 +177,11 @@ function injectDialog() {
     dlgHeader.appendChild(dlgHdrSecDiv);
     dlgHdrSecDiv.setAttribute('id', 'SGLCdlg-header-title');
     dlgHdrSecDiv.innerHTML = "Gaffi's SteamGifts Library Checker";
-	
+
 	var dlgHdrBttn = document.createElement('button');
     dlgHeader.appendChild(dlgHdrBttn);
     dlgHdrBttn.setAttribute('id', 'closeSGLC');
-	
+
 	dlgHdrBttn.addEventListener('click', function() {
         var blackbg = document.getElementById('black-background');
         var dlg = document.getElementById('SGLCdlg');
@@ -190,21 +189,21 @@ function injectDialog() {
         blackbg.style.display = 'none';
         dlg.style.display = 'none';
     });
-	
+
 	var dlgHdrBttnI = document.createElement('i');
     dlgHdrBttn.appendChild(dlgHdrBttnI);
     dlgHdrBttnI.setAttribute('class', 'fa fa-times');
     dlgHdrBttnI.style.fontSize = "25px";
     dlgHdrBttnI.style.marginTop = "-6px";
 
-	
+
 	var dlgBody = document.createElement('div');
     dlgMainDiv.appendChild(dlgBody);
     dlgBody.setAttribute('id', 'SGLCdlg-body');
-	
+
     var dlgTable = document.createElement('table');
 	dlgTable.setAttribute('style', 'width: 100%');
-	
+
     var rowAPIKey = dlgTable.insertRow(0);
     var rowAPIKeyLabel = rowAPIKey.insertCell(0);
 	var rowAPIKeyValue = rowAPIKey.insertCell(1);
@@ -223,9 +222,9 @@ function injectDialog() {
 	var rowButtons = dlgTable.insertRow(5);
     var rowButtonsCheck = rowButtons.insertCell(0);
 	var rowButtonsProgress = rowButtons.insertCell(1);
-	
+
 	dlgBody.appendChild(dlgTable);
-	
+
 	var dlgAPILab = document.createElement('label');
     rowAPIKeyLabel.appendChild(dlgAPILab);
     dlgAPILab.htmlFor = "APIKey";
@@ -236,7 +235,7 @@ function injectDialog() {
     dlgAPIInput.setAttribute('id', 'APIKey');
 	dlgAPIInput.setAttribute('class', 'SGLCdlg-input-enabled input');
 	dlgAPIInput.value = apiKey;
-  
+
 	var dlgAppIDLab = document.createElement('label');
     rowAppIDLabel.appendChild(dlgAppIDLab);
     dlgAppIDLab.htmlFor = "SGLCdlg-AppID";
@@ -246,7 +245,7 @@ function injectDialog() {
     dlgAppIDInput.type = "textarea";
     dlgAppIDInput.setAttribute('id', 'SGLCdlg-AppID');
 	dlgAppIDInput.setAttribute('class', 'SGLCdlg-input-enabled');
-	
+
 	var dlgGameNameLab = document.createElement('label');
     rowGameNameLabel.appendChild(dlgGameNameLab);
     dlgGameNameLab.htmlFor = "SGLCdlg-GameName";
@@ -267,7 +266,7 @@ function injectDialog() {
     dlgGroupIDResult.type = "textarea";
     dlgGroupIDResult.setAttribute('id', 'SGLCdlg-GroupID');
 	dlgGroupIDResult.setAttribute('class', 'SGLCdlg-input-enabled input');
-	
+
 	var dlgGroupBttn = document.createElement('button');
     rowGroupNameBttn.appendChild(dlgGroupBttn);
 	dlgGroupBttn.setAttribute('id', 'SGLCdlg-groupbutton');
@@ -278,6 +277,8 @@ function injectDialog() {
 		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
 			console.log('Group field not blank. Prompting user.');
 			document.getElementById('SGLCdlg-output').value = 'Cannot load blank group. Please use the format http://steamcommunity.com/groups/[[GROUP ID]]/ to populate.';
+			document.getElementById('SGLCdlg-GroupName').value = '';
+			countToCheck = 0;
 		} else {
 			console.log('Group field not blank. Prepping group check.');
 			importXMLGroupMembers(document.getElementById('SGLCdlg-GroupID').value);
@@ -304,14 +305,18 @@ function injectDialog() {
 		dlgOutputTxt.value = null;
 		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
 			console.log('Group field blank. Prepping WL check.');
+			document.getElementById('SGLCdlg-GroupName').value = '';
+			document.getElementById('SGLCdlg-output').value = 'Checking whitelisted users for game "' + document.getElementById('SGLCdlg-GameName').value + '"...';
 			if (countToCheck === 0) {
 				getWLCounts(true);
-			} 
+			}
+		} else {
+			document.getElementById('SGLCdlg-output').value = 'Checking users of group ' + document.getElementById('SGLCdlg-GroupName').value + ' for game "' + document.getElementById('SGLCdlg-GameName').value + '"...';
 		}
 		startCheck();
     });
 	rowButtonsCheck.appendChild(dlgCheckBttn);
-		
+
 	var dlgProgress = document.createElement('button');
     dlgBody.appendChild(dlgProgress);
     dlgProgress.setAttribute('id', 'SGLCdlg-progress');
@@ -319,16 +324,16 @@ function injectDialog() {
 	dlgProgress.setAttribute('style','display:none;float:right;');
     dlgProgress.innerHTML = "";
 	rowButtonsProgress.appendChild(dlgProgress);
-	
+
 	dlgBody.appendChild(document.createElement('br'));
-	
-	var dlgOutputTxt = document.createElement('textarea'); 
+
+	var dlgOutputTxt = document.createElement('textarea');
 	dlgOutputTxt.readOnly = true;
 	dlgOutputTxt.setAttribute('rows','10');
 	dlgOutputTxt.setAttribute('cols','50');
 	dlgOutputTxt.setAttribute('id', 'SGLCdlg-output');
 	dlgBody.appendChild(dlgOutputTxt);
-	
+
 	dlgBody.appendChild(document.createElement('br'));
 
 	var dlgCacheBttn = document.createElement('button');
@@ -343,9 +348,9 @@ function injectDialog() {
 		localStorage.removeItem(keyStorageWishData);
 		localStorage.removeItem(keyStorageOwnData);
     });
-	
+
 	dlgBody.appendChild(document.createElement('br'));
-	
+
 	var dlgInfo = document.createElement('h2');
     dlgBody.appendChild(dlgInfo);
     dlgInfo.style.float = "right";
@@ -357,7 +362,7 @@ function injectDialog() {
     dlgInfoA.style.fontStyle = "italic";
     dlgInfoA.style.textDecoration = "underline";
     dlgInfoA.innerHTML = "Info";
-	
+
 	dlgBody.appendChild(document.createElement('br'));
 
 }
@@ -487,7 +492,9 @@ function startCheck() {
 			USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
 		}
 	}
+
 	if(!apiKey) {
+		console.log('API Key is no good.');
 		if (!useSteam) {
 			apiKey = document.getElementById('APIKey').value;
 		} else {
@@ -497,14 +504,19 @@ function startCheck() {
 			localStorage.setItem('APIKey', apiKey);
 		}
 	} else {
+		console.log('API Key is good.');
 		gameTitle = null;
 		totalScanned = 0;
 		totalHave = 0;
-	
-		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
+
+		if (useSteam) {
 			checkWL();
 		} else {
-			checkGroup();
+			if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
+				checkWL();
+			} else {
+				checkGroup();
+			}
 		}
 	}
 }
@@ -533,7 +545,7 @@ function checkGroup() {
 		if (!gameTitle) {
 			importJSONSteamGameDetail(appInput);
 		}
-		
+
 		console.log('Scanning ' + countToCheck + ' total members of [[' + groupInput + ']] for game ' + appInput);
 		for (var i = 0; i < groupIDList.length; i++) {
 			console.log('Checking group user ' + groupIDList[i] + ' for game ' + appInput);
@@ -590,13 +602,12 @@ function getWLCounts(OnWLPage) {
  * Reads Steam API for group members.
  * Using XML, which is depreciated, but I can't find documentation on a JSON example.
  * @param {string} groupName - Steam group id to get members of
- 
  */
 function importXMLGroupMembers(groupName) {
 	// Format: http://steamcommunity.com/groups/<groupName>/memberslistxml/?xml=1
 	// Example: http://steamcommunity.com/groups/Valve/memberslistxml/?xml=1
 	if (groupIDList != []) {
-		var link = "http://steamcommunity.com/groups/" + groupName +"/memberslistxml/?xml=1"
+		var link = "http://steamcommunity.com/groups/" + groupName +"/memberslistxml/?xml=1";
 		console.log('Checking group page [' + link + '] for members.');
 		var xmlDoc;
 		GM_xmlhttpRequest ({
@@ -625,7 +636,7 @@ function importXMLGroupMembers(groupName) {
 		});
 	}
 }
-	
+
 /**
  * Reads Steam API for game details (game title)
  * @param {Number} appID - Steam game ID to check ownership of
@@ -646,7 +657,7 @@ function importJSONSteamGameDetail(appID) {
 					var badAPIMsg = "Unexpected token < in JSON";
 					console.log("Uncaught error: " + e.name + " -- " + e.message);
 				}
-				if (jsonFile[appID.toString()]["success"]) {
+				if (jsonFile[appID.toString()].success) {
 					gameTitle = jsonFile[appID.toString()].data.name;
 					console.log('Game Title: ' + gameTitle);
 					if (!useSteam && document.getElementById('SGLCdlg-GameName').value.length === 0) {
@@ -654,7 +665,7 @@ function importJSONSteamGameDetail(appID) {
 					}
 				} else {
 					countToCheck = 0;
-					totalScanned = 0;				
+					totalScanned = 0;
 				}
 			}
 		},
@@ -703,7 +714,7 @@ function importJSONSteamUserDetail(steamID, appID) {
 				}
             },
         });
-    } else { 
+    } else {
 		processCount(2);
 	}
 }
@@ -761,7 +772,7 @@ function checkHasGame(row, appID) {
 						readStoredOwnershipData(steamID, appID);
 					}
 				}
-			
+
 				if (useSteam) {
 					libraryDiv.innerHTML = "<span>Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + "%</span>";
 				} else {
@@ -822,11 +833,11 @@ function wrapUp() {
 		if (!apiKey) {
 			prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
 		}
-		
+
 		if ((LAST_UPDATED < cacheDate || LAST_UPDATED === null) && !useSteam) {
 			localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
 		}
-		
+
 		// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
 		// Asnyc calls keep running, so this check appears mutliple times in the code.
 		if (countToCheck > 0) {
