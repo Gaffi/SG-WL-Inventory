@@ -39,7 +39,7 @@ var whichPage = -1; // 0 = Steam, 1 = SG Group, 2 = SG WL
 var startedWrapUp = false;
 var groupInput = null;
 var groupIDList = [];
-var userLimit = 600;
+var userLimit = 190;
 
 var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
 var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
@@ -664,9 +664,9 @@ function importJSONSteamGameDetail(appID) {
 				try{
 					jsonFile = JSON.parse(response.responseText);
 				}catch(e){
-					var badAPIMsg = "Unexpected token < in JSON";
 					console.log("Uncaught error: " + e.name + " -- " + e.message);
 				}
+				console.log(jsonFile);
 				if (jsonFile[appID.toString()].success) {
 					gameTitle = jsonFile[appID.toString()].data.name;
 					console.log('Game Title: ' + gameTitle);
@@ -704,17 +704,15 @@ function importJSONSteamUserDetail(steamID, appID) {
                     try{
                         jsonFile = JSON.parse(response.responseText);
                     }catch(e){
-						if (apiKey) {
-							var badAPIMsg = "Unexpected token < in JSON";
-							if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
-								// Clear API values to prevent more calls to API.
-								processCount(2);
-								console.log('Error loading user JSON!');
-								localStorage.removeItem('APIKey');
-								apiKey = null;
-							} else {
-								console.log("Uncaught error: " + e.name + " -- " + e.message);
-							}
+						var badAPIMsg = "Unexpected token < in JSON";
+						if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
+							// Clear API values to prevent more calls to API.
+							processCount(2);
+							console.log('Error loading user JSON!');
+							localStorage.removeItem('APIKey');
+							apiKey = null;
+						} else {
+							console.log("Uncaught error: " + e.name + " -- " + e.message);
 						}
                     }
 					if (jsonFile) {
