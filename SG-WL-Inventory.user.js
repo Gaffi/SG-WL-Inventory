@@ -9,6 +9,7 @@
 // @updateURL    https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
 // @supportURL   https://www.steamgifts.com/discussion/HipoH/
 // @match        https://www.steamgifts.com/account/manage/whitelist*
+// @match 		 https://www.steamgifts.com/group/*
 // @match		 http://store.steampowered.com/app/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
@@ -30,13 +31,15 @@ var wlPages = 0;
 var gameTitle = null;
 var libraryDiv;
 var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
+var urlGroup = 'www.steamgifts.com/group/';
 //var urlWishlist = 'http://steamcommunity.com/profiles/ ... /wishlist';
 //var searchWishlistHTML = 'wishlist_remove_ ..... ';
 var urlSteamApp = 'store.steampowered.com/app/';
-var useSteam = false;
+var whichPage = -1; // 0 = Steam, 1 = SG Group, 2 = SG WL
 var startedWrapUp = false;
 var groupInput = null;
 var groupIDList = [];
+var userLimit = 600;
 
 var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
 var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
@@ -65,13 +68,19 @@ if (!Array.prototype.indexOf) {
 
 window.onload = function() {
 	apiKey = localStorage.getItem('APIKey');
+
 	if (window.location.href.indexOf(urlSteamApp)>0) {
 		console.log('SteamGifts Library Checker Injecting Steam Store');
-		useSteam = true;
+		whichPage = 0;
 		injectInterfaceSteam();
 	} else {
-		console.log('SteamGifts Library Checker Injecting SteamGifts');
-		useSteam = false;
+		if (window.location.href.indexOf(urlGroup)>0) {
+			console.log('SteamGifts Library Checker Injecting SteamGifts Group Page');
+			whichPage = 1;
+		} else {
+			console.log('SteamGifts Library Checker Injecting SteamGifts Whitelist Page');
+			whichPage = 2;
+		}
 		injectDialog();
 		injectDlgStyle();
 		injectInterfaceSG();
@@ -115,29 +124,62 @@ function injectInterfaceSteam() {
 		curURL += '/';
 	}
 	appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
-	getWLCounts(false);
+	getWLCounts();
 	console.log('Whitelist library button loaded without errors.');
 }
 
 /**
- * Adds button to SteamGifts whitelist page to run checking process
+ * Adds button to SteamGifts whitelist/group page to run checking process
  */
 function injectInterfaceSG() {
 	var bFound=0;
     var i=0;
     var refTarget;
+	var searchElement = '';
+	var searchHTML = '';
+	switch (whichPage) {
+		case 1:
+			searchElement = 'sidebar__shortcut-inner-wrap';
+			searchHTML = 'data-tooltip="Visit Steam Group"><i class="fa fa-fw fa-steam"></i></a>';
+			break;
+		case 2:
+			searchElement = 'page__heading__breadcrumbs';
+			searchHTML = '<a href="/account">Account</a><i class="fa fa-angle-right"></i><a href="/account/manage/whitelist">Whitelist</a>';
+			break;
+	}
+	
     while(bFound===0) {
-        refTarget = document.getElementsByClassName('page__heading__breadcrumbs')[i];
-        if (refTarget.innerHTML.indexOf('<a href="/account">Account</a><i class="fa fa-angle-right"></i><a href="/account/manage/whitelist">Whitelist</a>')===0) {
-            bFound = 1;
-        } else i++;
+		refTarget = document.getElementsByClassName(searchElement)[i];
+		if (refTarget.innerHTML.indexOf(searchHTML) >= 0) {
+			bFound = 1;
+		} else i++;
     }
 
 	console.log('Creating button/progress bar on SteamGifts...');
 	libraryDiv = document.createElement("DIV");
-    libraryDiv.id = "whitelist_ownership_checker";
-    libraryDiv.className = 'form__submit-button';
-    libraryDiv.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Check game ownership";
+	libraryDiv.id = "whitelist_ownership_checker";
+	switch (whichPage) {
+		case 1:
+			libraryDiv.className = 'sidebar__shortcut-inner-wrap';
+			libraryDiv.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Check game ownership</span>";
+			appInput = document.getElementById('SGLCdlg-AppID').value;
+			
+			var groupLinkDivHTML = document.getElementsByClassName('sidebar__shortcut-inner-wrap')[0].innerHTML;
+			var searchHTML = '<a rel="nofollow" target="_blank" href="http://www.steamcommunity.com/gid/';
+			
+			var srchstrt = groupLinkDivHTML.indexOf(searchHTML)+searchHTML.length;
+			var srchstp = groupLinkDivHTML.slice(srchstrt).indexOf('"') + srchstrt;
+
+			var groupID = groupLinkDivHTML.slice(srchstrt,srchstp);
+
+			importXMLGroupMembers(groupID);
+			break;
+		case 2:
+			libraryDiv.className = 'form__submit-button';
+			libraryDiv.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Check game ownership</span>";
+			break;
+	}
+	
     refTarget.parentNode.appendChild(libraryDiv);
 
 	libraryDiv.addEventListener('click', function() {
@@ -153,7 +195,6 @@ function injectInterfaceSG() {
 		dlg.style.top = '150px';
 	});
 
-	//getWLCounts(true);
 	console.log('Whitelist library button loaded without errors.');
 }
 
@@ -213,13 +254,7 @@ function injectDialog() {
 	var rowGameName = dlgTable.insertRow(2);
     var rowGameNameLabel = rowGameName.insertCell(0);
 	var rowGameNameResult = rowGameName.insertCell(1);
-	var rowGroupID = dlgTable.insertRow(3);
-    var rowGroupIDLabel = rowGroupID.insertCell(0);
-	var rowGroupIDResult = rowGroupID.insertCell(1);
-	var rowGroupName = dlgTable.insertRow(4);
-    var rowGroupNameBttn = rowGroupName.insertCell(0);
-	var rowGroupNameResult = rowGroupName.insertCell(1);
-	var rowButtons = dlgTable.insertRow(5);
+	var rowButtons = dlgTable.insertRow(3);
     var rowButtonsCheck = rowButtons.insertCell(0);
 	var rowButtonsProgress = rowButtons.insertCell(1);
 
@@ -257,41 +292,6 @@ function injectDialog() {
 	dlgGameNameResult.setAttribute('class', 'SGLCdlg-input-disabled input');
     dlgGameNameResult.setAttribute('id', 'SGLCdlg-GameName');
 
-	var dlgGroupIDLab = document.createElement('label');
-    rowGroupIDLabel.appendChild(dlgGroupIDLab);
-    dlgGroupIDLab.htmlFor = "SGLCdlg-GroupID";
-    dlgGroupIDLab.innerHTML = "Group ID" + '\n' + "(blank for whitelist):";
-	var dlgGroupIDResult = document.createElement('input');
-    rowGroupIDResult.appendChild(dlgGroupIDResult);
-    dlgGroupIDResult.type = "textarea";
-    dlgGroupIDResult.setAttribute('id', 'SGLCdlg-GroupID');
-	dlgGroupIDResult.setAttribute('class', 'SGLCdlg-input-enabled input');
-
-	var dlgGroupBttn = document.createElement('button');
-    rowGroupNameBttn.appendChild(dlgGroupBttn);
-	dlgGroupBttn.setAttribute('id', 'SGLCdlg-groupbutton');
-    dlgGroupBttn.setAttribute('class', 'SGLCdlg-button');
-	dlgGroupBttn.setAttribute('style', 'float:left;');
-    dlgGroupBttn.innerHTML = "Load Group Data";
-	dlgGroupBttn.addEventListener('click', function() {
-		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
-			console.log('Group field not blank. Prompting user.');
-			document.getElementById('SGLCdlg-output').value = 'Cannot load blank group. Please use the format http://steamcommunity.com/groups/[[GROUP ID]]/ to populate.';
-			document.getElementById('SGLCdlg-GroupName').value = '';
-			countToCheck = 0;
-		} else {
-			console.log('Group field not blank. Prepping group check.');
-			importXMLGroupMembers(document.getElementById('SGLCdlg-GroupID').value);
-			document.getElementById('SGLCdlg-output').value = '';
-		}
-    });
-	var dlgGroupNameResult = document.createElement('input');
-    rowGroupNameResult.appendChild(dlgGroupNameResult);
-    dlgGroupNameResult.type = "textarea";
-	dlgGroupNameResult.readOnly = true;
-    dlgGroupNameResult.setAttribute('id', 'SGLCdlg-GroupName');
-	dlgGroupNameResult.setAttribute('class', 'SGLCdlg-input-disabled input');
-
 	var dlgCheckBttn = document.createElement('button');
     dlgBody.appendChild(dlgCheckBttn);
 	dlgCheckBttn.setAttribute('id', 'SGLCdlg-checkbutton');
@@ -303,17 +303,19 @@ function injectDialog() {
         localStorage.setItem(input.id, input.value);
 		dlgGameNameResult.value = null;
 		dlgOutputTxt.value = null;
-		if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
-			console.log('Group field blank. Prepping WL check.');
-			document.getElementById('SGLCdlg-GroupName').value = '';
-			document.getElementById('SGLCdlg-output').value = 'Checking whitelisted users for game "' + document.getElementById('SGLCdlg-GameName').value + '"...';
-			if (countToCheck === 0) {
-				getWLCounts(true);
-			}
+		if(document.getElementById('SGLCdlg-AppID').value.length ===  0) {
+			document.getElementById('SGLCdlg-output').value = 'Please enter a valid app ID...';
 		} else {
-			document.getElementById('SGLCdlg-output').value = 'Checking users of group ' + document.getElementById('SGLCdlg-GroupName').value + ' for game "' + document.getElementById('SGLCdlg-GameName').value + '"...';
+			switch (whichPage) {
+				case 1:
+					document.getElementById('SGLCdlg-output').value = 'Checking users of group ' + groupInput + '...';
+					break;
+				case 2:
+					document.getElementById('SGLCdlg-output').value = 'Checking whitelisted users...';
+					break;
+			}
+			startCheck();
 		}
-		startCheck();
     });
 	rowButtonsCheck.appendChild(dlgCheckBttn);
 
@@ -332,6 +334,7 @@ function injectDialog() {
 	dlgOutputTxt.setAttribute('rows','10');
 	dlgOutputTxt.setAttribute('cols','50');
 	dlgOutputTxt.setAttribute('id', 'SGLCdlg-output');
+	dlgOutputTxt.value = '';
 	dlgBody.appendChild(dlgOutputTxt);
 
 	dlgBody.appendChild(document.createElement('br'));
@@ -477,7 +480,8 @@ function startCheck() {
 	var user_own_data = localStorage.getItem(keyStorageOwnData);
 	var user_wish_data = localStorage.getItem(keyStorageWishData);
 
-	if (LAST_UPDATED < cacheDate || useSteam || LAST_UPDATED === null) { // Only use cached values if not using STEAM.
+	// Only use cached values if not using STEAM.
+	if (LAST_UPDATED < cacheDate || whichPage <= 0 || LAST_UPDATED === null) { 
 		USER_OWN_DATA = JSON.parse('{"whitelistusers":[]}');
 		USER_WISH_DATA = JSON.parse('{"whitelistusers":[]}');
 	} else {
@@ -495,7 +499,7 @@ function startCheck() {
 
 	if(!apiKey) {
 		console.log('API Key is no good.');
-		if (!useSteam) {
+		if (whichPage > 0) {
 			apiKey = document.getElementById('APIKey').value;
 		} else {
 			apiKey = prompt("A Steam API Key is required to perform the lookup. Please enter your Steam API key:\n\n(You can get/generate your API key here: https://steamcommunity.com/dev/apikey)", "https://steamcommunity.com/dev/apikey");
@@ -509,59 +513,65 @@ function startCheck() {
 		totalScanned = 0;
 		totalHave = 0;
 
-		if (useSteam) {
-			checkWL();
-		} else {
-			if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
-				checkWL();
+		checkOwnership();
+	}
+}
+
+/**
+ * Kicks off ownership checking routine.
+ */
+function checkOwnership() {
+	switch (whichPage) {
+		case 0: // Steam Store
+			break;
+		case 1: // SG Group Page
+			if (countToCheck>userLimit) {
+				console.log('Too many users in the list. (' + countToCheck + '/' + userLimit + ') Stopping.');
+				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at one time, and the script likely will not work with this many users. (Steam API count may reflect a different amount than what is displayed on the SG group page.)';
 			} else {
-				checkGroup();
+				console.log('Number of users in the list is good. Continuing...');
+				appInput = document.getElementById('SGLCdlg-AppID').value;
+				if (appInput) {
+					console.log('appInput is good: ' + appInput);
+					if (!gameTitle) {
+						console.log('Getting game title...');
+						importJSONSteamGameDetail(appInput);
+					}
+					console.log('Scanning through ' + groupIDList.length + ' users...');
+					for (var i = 0; i < groupIDList.length; i++) {
+						console.log('Checking group user ' + groupIDList[i] + ' for game ' + appInput + ' (' + i+1 + '/' + groupIDList.length + ')');
+						importJSONSteamUserDetail(groupIDList[i], appInput);
+					}
+				} else {
+					console.log('appInput is no good...');
+				}
 			}
-		}
+			break;
+		case 2: // SG WL Page
+			getWLCounts();
+
+			if (countToCheck>userLimit) {
+				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at one time, and the script likely will not work with this many users. (Steam API count may reflect a different amount than what is displayed on the SG group page.)';
+			} else {
+				appInput = document.getElementById('SGLCdlg-AppID').value;
+				if (appInput) {
+					console.log('Scanning ' + countToCheck + ' total whitelisted users for game ' + appInput);
+					readAllWLPages(urlWhitelist + "/search?page=", 1);
+				}
+			}
+			break;
 	}
 }
 
-/**
- * Kicks off whitelist checking routine.
- */
-function checkWL() {
-	if (!useSteam) {
-		appInput = document.getElementById('SGLCdlg-AppID').value;
-	}
-
-	if (appInput) {
-		console.log('Scanning ' + countToCheck + ' total whitelisted users for game ' + appInput);
-		readAllWLPages(urlWhitelist + "/search?page=", 1);
-	}
-}
-
-/**
- * Kicks off group checking routine.
- */
-function checkGroup() {
-	appInput = document.getElementById('SGLCdlg-AppID').value;
-
-	if (appInput) {
-		if (!gameTitle) {
-			importJSONSteamGameDetail(appInput);
-		}
-
-		console.log('Scanning ' + countToCheck + ' total members of [[' + groupInput + ']] for game ' + appInput);
-		for (var i = 0; i < groupIDList.length; i++) {
-			console.log('Checking group user ' + groupIDList[i] + ' for game ' + appInput);
-			importJSONSteamUserDetail(groupIDList[i], appInput);
-		}
-	}
-}
 
 /**
  * Preloads total whitelist count information to avoid loading pages multiple times.
  * @param {boolean} OnWLPage - Flag for running from Steam store or SteamGifts site
  */
-function getWLCounts(OnWLPage) {
+function getWLCounts() {
 	var linkPosition = 0;
 	var searchURL = 'href="/account/manage/whitelist/search?page=';
-	if (OnWLPage) {
+	if (whichPage == 2) {
 		// Read the whitelist page in place
 		countToCheck = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
 		if (countToCheck<=25) {
@@ -601,13 +611,13 @@ function getWLCounts(OnWLPage) {
 /**
  * Reads Steam API for group members.
  * Using XML, which is depreciated, but I can't find documentation on a JSON example.
- * @param {string} groupName - Steam group id to get members of
+ * @param {number} groupID - Steam group id to get members of
  */
-function importXMLGroupMembers(groupName) {
-	// Format: http://steamcommunity.com/groups/<groupName>/memberslistxml/?xml=1
-	// Example: http://steamcommunity.com/groups/Valve/memberslistxml/?xml=1
+function importXMLGroupMembers(groupID) {
+	// Format: http://steamcommunity.com/gid/<groupID>/memberslistxml/?xml=1
+	// Example: http://steamcommunity.com/gid/13759/memberslistxml/?xml=1
 	if (groupIDList != []) {
-		var link = "http://steamcommunity.com/groups/" + groupName +"/memberslistxml/?xml=1";
+		var link = "http://steamcommunity.com/gid/" + groupID +"/memberslistxml/?xml=1";
 		console.log('Checking group page [' + link + '] for members.');
 		var xmlDoc;
 		GM_xmlhttpRequest ({
@@ -625,8 +635,8 @@ function importXMLGroupMembers(groupName) {
 						xmlDoc.loadXML(response.responseText);
 					}
 					groupInput = xmlDoc.getElementsByTagName("groupDetails")[0].getElementsByTagName('groupName')[0].firstChild.nodeValue;
-					document.getElementById('SGLCdlg-GroupName').value = groupInput;
 					var baseXMLData = xmlDoc.getElementsByTagName("members")[0].getElementsByTagName('steamID64');
+					console.log(baseXMLData.length + ' users found in group...');
 					countToCheck = baseXMLData.length;
 					for (i = 0; i < countToCheck; i++) {
 						groupIDList.push(baseXMLData[i].firstChild.nodeValue);
@@ -660,7 +670,7 @@ function importJSONSteamGameDetail(appID) {
 				if (jsonFile[appID.toString()].success) {
 					gameTitle = jsonFile[appID.toString()].data.name;
 					console.log('Game Title: ' + gameTitle);
-					if (!useSteam && document.getElementById('SGLCdlg-GameName').value.length === 0) {
+					if (whichPage > 0 && document.getElementById('SGLCdlg-GameName').value.length === 0) {
 						document.getElementById('SGLCdlg-GameName').value = gameTitle;
 					}
 				} else {
@@ -773,13 +783,6 @@ function checkHasGame(row, appID) {
 					}
 				}
 
-				if (useSteam) {
-					libraryDiv.innerHTML = "<span>Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + "%</span>";
-				} else {
-					var dlgProgress = document.getElementById('SGLCdlg-progress');
-					dlgProgress.setAttribute('style','display:block;float:right;');
-					dlgProgress.innerHTML = "<i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + '%';
-				}
 			} else {
 				processCount(2);
 			}
@@ -810,6 +813,15 @@ function processCount(hasGame) {
 				break;
 		}
 	}
+
+	if (whichPage === 0) {
+		libraryDiv.innerHTML = "<span>Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + "%</span>";
+	} else {
+		var dlgProgress = document.getElementById('SGLCdlg-progress');
+		dlgProgress.setAttribute('style','display:block;float:right;');
+		dlgProgress.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + '%</span>';
+	}
+
 	if (totalScanned >= countToCheck) {
 		console.log('Wrapping up... If this is an early termination, async calls may post multiple times.');
 		wrapUp();
@@ -824,7 +836,7 @@ function wrapUp() {
 	if (!startedWrapUp) {
 		console.log("...Not yet, so let's do it.");
 		startedWrapUp = true;
-		if (!useSteam) {
+		if (whichPage > 0) {
 			console.log('Finishing up... writing user data to localStorage');
 			localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
 		} else {
@@ -834,7 +846,7 @@ function wrapUp() {
 			prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
 		}
 
-		if ((LAST_UPDATED < cacheDate || LAST_UPDATED === null) && !useSteam) {
+		if ((LAST_UPDATED < cacheDate || LAST_UPDATED === null) && whichPage > 0) {
 			localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
 		}
 
@@ -842,24 +854,24 @@ function wrapUp() {
 		// Asnyc calls keep running, so this check appears mutliple times in the code.
 		if (countToCheck > 0) {
 			console.log('Good whitelist count, normal output.');
-			if (useSteam) {
+			if (whichPage === 0) {
 				libraryDiv.innerHTML = "<span>SG♥: " + totalHave + "/" + totalScanned + " (" + Number((100*totalHave/totalScanned).toFixed(2)) + "%)</span>";
 			} else {
 				document.getElementById('SGLCdlg-GameName').value = gameTitle;
 				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
-				if (document.getElementById('SGLCdlg-GroupID').value.length === 0) {
+				if (whichPage == 2) {
 					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
 				} else {
-					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + (totalScanned == 1 ? ' user ' : ' users ') + 'in group ' + document.getElementById('SGLCdlg-GroupName').value + ', ' + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
+					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + (totalScanned == 1 ? ' user ' : ' users ') + 'in group ' + groupInput + ', ' + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
 				}
 			}
 		} else {
 			console.log('Whitelist count = 0, null output.');
-			if (useSteam) {
+			if (whichPage === 0) {
 				libraryDiv.innerHTML = "<span>SG Check</span>";
 			} else {
 				document.getElementById('SGLCdlg-GameName').value = '<not loaded>';
-				document.getElementById('SGLCdlg-output').value = 'There was either an error loading the userlist or the game data from Steam. Please try again.';
+				document.getElementById('SGLCdlg-output').value = 'There was either an error loading data from Steam. This could be a server or API problem. Please try again.\n\nIf you cannot resolve, please report the error. Thanks!';
 				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
 			}
 		}
