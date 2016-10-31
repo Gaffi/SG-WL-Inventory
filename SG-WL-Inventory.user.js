@@ -37,7 +37,7 @@ var urlGroup = 'www.steamgifts.com/group/';
 var urlSteamApp = 'store.steampowered.com/app/';
 var whichPage = -1; // 0 = Steam, 1 = SG Group, 2 = SG WL
 var startedWrapUp = false;
-var groupInput = null;
+//var groupInput = null;
 var groupIDList = [];
 var userLimit = 600;
 
@@ -678,9 +678,10 @@ function getUserCounts() {
 /**
  * Reads Steam API for group members.
  * Using XML, which is depreciated, but I can't find documentation on a JSON example.
+ * Currently not in use, code will likely be removed in a future update.
  * @param {number} groupID - Steam group id to get members of
  */
-function importXMLGroupMembers(groupID) {
+/*function importXMLGroupMembers(groupID) {
 	// Format: http://steamcommunity.com/gid/<groupID>/memberslistxml/?xml=1
 	// Example: http://steamcommunity.com/gid/13759/memberslistxml/?xml=1
 	if (groupIDList != []) {
@@ -712,7 +713,7 @@ function importXMLGroupMembers(groupID) {
 			},
 		});
 	}
-}
+}*/
 
 /**
  * Reads Steam API for game details (game title)
@@ -760,7 +761,7 @@ function importJSONSteamUserDetail(steamID, appID) {
 	// apiKey check here plays a similar role.
     if (apiKey && countToCheck > 0 && steamID) {
         var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
-		console.log(link);
+		//console.log(link);
         var jsonFile;
         GM_xmlhttpRequest ({
             method: "GET",
@@ -903,7 +904,10 @@ function wrapUp() {
 		startedWrapUp = true;
 		if (whichPage > 0) {
 			console.log('Finishing up... writing user data to localStorage');
-			localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
+			try {localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));}
+			catch(e){
+				console.log(e.message);
+			}
 		} else {
 			console.log('Finishing up... ran from Steam, so not writing user data to localStorage');
 		}
@@ -927,7 +931,7 @@ function wrapUp() {
 				if (whichPage == 2) {
 					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + ' whitelisted SteamGifts ' + (totalScanned == 1 ? 'user, ' : 'users, ') + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
 				} else {
-					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + (totalScanned == 1 ? ' user ' : ' users ') + 'in group ' + groupInput + ', ' + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
+					document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + (totalScanned == 1 ? ' user ' : ' users ') + 'in group, ' + totalHave + ' already ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
 				}
 			}
 		} else {
