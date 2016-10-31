@@ -27,7 +27,7 @@ var appInput = null;
 var totalScanned = 0;
 var totalHave = 0;
 var countToCheck = 0;
-var wlPages = 0;
+var userPages = 0;
 var gameTitle = null;
 var libraryDiv;
 var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
@@ -39,7 +39,7 @@ var whichPage = -1; // 0 = Steam, 1 = SG Group, 2 = SG WL
 var startedWrapUp = false;
 var groupInput = null;
 var groupIDList = [];
-var userLimit = 190;
+var userLimit = 600;
 
 var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
 var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
@@ -124,7 +124,7 @@ function injectInterfaceSteam() {
 		curURL += '/';
 	}
 	appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
-	getWLCounts();
+	getUserCounts();
 	console.log('Whitelist library button loaded without errors.');
 }
 
@@ -160,9 +160,10 @@ function injectInterfaceSG() {
 	libraryDiv.id = "whitelist_ownership_checker";
 	switch (whichPage) {
 		case 1:
+			getUserCounts();
 			libraryDiv.className = 'sidebar__shortcut-inner-wrap';
 			libraryDiv.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Check game ownership</span>";
-			appInput = document.getElementById('SGLCdlg-AppID').value;
+			/*appInput = document.getElementById('SGLCdlg-AppID').value;
 			
 			var groupLinkDivHTML = document.getElementsByClassName('sidebar__shortcut-inner-wrap')[0].innerHTML;
 			var searchHTML = '<a rel="nofollow" target="_blank" href="http://www.steamcommunity.com/gid/';
@@ -172,7 +173,7 @@ function injectInterfaceSG() {
 
 			var groupID = groupLinkDivHTML.slice(srchstrt,srchstp);
 
-			importXMLGroupMembers(groupID);
+			importXMLGroupMembers(groupID);*/
 			break;
 		case 2:
 			libraryDiv.className = 'form__submit-button';
@@ -308,7 +309,7 @@ function injectDialog() {
 		} else {
 			switch (whichPage) {
 				case 1:
-					document.getElementById('SGLCdlg-output').value = 'Checking users of group ' + groupInput + '...';
+					document.getElementById('SGLCdlg-output').value = 'Checking group users...';
 					break;
 				case 2:
 					document.getElementById('SGLCdlg-output').value = 'Checking whitelisted users...';
@@ -523,11 +524,18 @@ function startCheck() {
 function checkOwnership() {
 	switch (whichPage) {
 		case 0: // Steam Store
+				if (appInput) {
+					console.log('Scanning ' + countToCheck + ' total whitelisted users for game ' + appInput);
+					readAllUserPages(urlWhitelist + "/search?page=", 1);
+				}
 			break;
-		case 1: // SG Group Page
+		case 1: // SG Group Page			
 			if (countToCheck>userLimit) {
 				console.log('Too many users in the list. (' + countToCheck + '/' + userLimit + ') Stopping.');
-				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at one time, and the script likely will not work with this many users. (Steam API count may reflect a different amount than what is displayed on the SG group page.)';
+				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at one time, and the script likely will not work with this many users. (Steam count will reflect a different amount than what is displayed on the SG group page. This is normal.)';
+			} else if (countToCheck === 0) {
+				console.log('0 users found. Stopping.');
+				document.getElementById('SGLCdlg-output').value = 'There were no users found. This is probably an error in the script, but please make sure you are on a proper group page before trying. If you think you have done everything correctly, please report this error.';
 			} else {
 				console.log('Number of users in the list is good. Continuing...');
 				appInput = document.getElementById('SGLCdlg-AppID').value;
@@ -537,18 +545,25 @@ function checkOwnership() {
 						console.log('Getting game title...');
 						importJSONSteamGameDetail(appInput);
 					}
-					console.log('Scanning through ' + groupIDList.length + ' users...');
-					for (var i = 0; i < groupIDList.length; i++) {
+					console.log('Scanning through ' + countToCheck + ' group users...');
+					var groupURL = '';
+					if (window.location.href.indexOf('user') > 0) {
+						groupURL = window.location.href + '/search?page=';
+					} else {
+						groupURL = window.location.href + '/users/search?page=';
+					}
+					readAllUserPages(groupURL, 1);
+					/*for (var i = 0; i < groupIDList.length; i++) {
 						console.log('Checking group user ' + groupIDList[i] + ' for game ' + appInput + ' (' + i+1 + '/' + groupIDList.length + ')');
 						importJSONSteamUserDetail(groupIDList[i], appInput);
-					}
+					}*/
 				} else {
 					console.log('appInput is no good...');
 				}
 			}
 			break;
 		case 2: // SG WL Page
-			getWLCounts();
+			getUserCounts();
 
 			if (countToCheck>userLimit) {
 				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at one time, and the script likely will not work with this many users. (Steam API count may reflect a different amount than what is displayed on the SG group page.)';
@@ -556,7 +571,7 @@ function checkOwnership() {
 				appInput = document.getElementById('SGLCdlg-AppID').value;
 				if (appInput) {
 					console.log('Scanning ' + countToCheck + ' total whitelisted users for game ' + appInput);
-					readAllWLPages(urlWhitelist + "/search?page=", 1);
+					readAllUserPages(urlWhitelist + "/search?page=", 1);
 				}
 			}
 			break;
@@ -568,43 +583,95 @@ function checkOwnership() {
  * Preloads total whitelist count information to avoid loading pages multiple times.
  * @param {boolean} OnWLPage - Flag for running from Steam store or SteamGifts site
  */
-function getWLCounts() {
+function getUserCounts() {
 	var linkPosition = 0;
-	var searchURL = 'href="/account/manage/whitelist/search?page=';
-	if (whichPage == 2) {
-		// Read the whitelist page in place
-		countToCheck = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-		if (countToCheck<=25) {
-			wlPages = 1;
-		} else {
-			linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
-			wlPages = document.body.innerHTML.slice(linkPosition, document.body.innerHTML.indexOf('"',linkPosition-1));
-		}
-	} else {
-		// Load the whitelist page and read from xml data
-		var link = urlWhitelist;
-		console.log('Checking WL page [' + link + '] for user count.');
-		GM_xmlhttpRequest({
-			method: "GET",
-			url: link,
-			onload: function(response) {
-				if (response){
-					var tempElem = document.createElement("div");
-					tempElem.style.display = "none";
-					tempElem.innerHTML = response.responseText;
-					//console.log(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-					countToCheck = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML);
-					if (countToCheck<=25) {
-						wlPages = 1;
+	var searchURL = '';
+	switch(whichPage) {
+		case 0:
+			// Load the whitelist page and read from xml data
+			console.log('Getting user counts for WL page from Steam Store...');
+			searchURL = 'href="/account/manage/whitelist/search?page=';
+			var link = urlWhitelist + '/search?page=1000';
+			console.log('Checking WL page [' + link + '] for user count.');
+			GM_xmlhttpRequest({
+				method: "GET",
+				url: link,
+				onload: function(response) {
+					if (response){
+						var tempElem = document.createElement("div");
+						tempElem.style.display = "none";
+						tempElem.innerHTML = response.responseText;
+						countToCheck = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML.replace(/\,/g,''));
+						if (countToCheck<=25) {
+							userPages = 1;
+						} else {
+							linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+							userPages = tempElem.innerHTML.slice(linkPosition, tempElem.innerHTML.indexOf('"',linkPosition-1));
+						}
 					} else {
-						linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
-						wlPages = tempElem.innerHTML.slice(linkPosition, tempElem.innerHTML.indexOf('"',linkPosition-1));
+						console.log('Error loading WL page...');
 					}
-				} else {
-					console.log('Error loading WL page...');
 				}
+			});
+			break;
+		case 1:
+			// Load the group page and read counts 
+			/*if (window.location.href.indexOf('user') > 0) {
+				// Read the group page in place
+				console.log('Getting user counts from main group user list page from SG...');
+				var searchFull =  window.location.href;
+				var searchStart = searchFull.indexOf('/group')+6;
+				var searchStop = searchFull.indexOf('/user');
+				searchURL = 'href="/group' + searchFull.slice(searchStart,searchStop) + '/users/search?page=';
+				countToCheck = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[1].innerHTML.replace(/\,/g,''));
+				if (countToCheck<=25) {
+					userPages = 1;
+				} else {
+					linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+					userPages = document.body.innerHTML.slice(linkPosition, document.body.innerHTML.indexOf('"',linkPosition-1));
+				}
+			} else {*/
+				// ...else not on the user page, so load the user page and read from xml data
+				console.log('Getting user counts from main group page from SG...');
+				var searchFull =  window.location.href;
+				var searchStart = searchFull.indexOf('/group')+6;
+				searchURL = 'href="/group' + searchFull.slice(searchStart) + '/users/search?page=';
+				var link = window.location.href + '/users/search?page=1000';
+				console.log('Checking group user page [' + link + '] for user count.');
+				GM_xmlhttpRequest({
+					method: "GET",
+					url: link,
+					onload: function(response) {
+						if (response){
+							var tempElem = document.createElement("div");
+							tempElem.style.display = "none";
+							tempElem.innerHTML = response.responseText;
+							countToCheck = parseInt(tempElem.getElementsByClassName('sidebar__navigation__item__count')[1].innerHTML.replace(/\,/g,''));
+							if (countToCheck<=25) {
+								userPages = 1;
+							} else {
+								linkPosition = tempElem.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+								userPages = tempElem.innerHTML.slice(linkPosition, tempElem.innerHTML.indexOf('"',linkPosition-1));
+							}
+						} else {
+							console.log('Error loading WL page...');
+						}
+					}
+				});
+			//}
+			break;
+		case 2:
+			// Read the whitelist page in place
+			console.log('Getting user counts for WL page from SG...');
+			searchURL = 'href="/account/manage/whitelist/search?page=';
+			countToCheck = parseInt(document.getElementsByClassName('sidebar__navigation__item__count')[0].innerHTML.replace(/\,/g,''));
+			if (countToCheck<=25) {
+				userPages = 1;
+			} else {
+				linkPosition = document.body.innerHTML.lastIndexOf(searchURL) + searchURL.length;
+				userPages = document.body.innerHTML.slice(linkPosition, document.body.innerHTML.indexOf('"',linkPosition-1));
 			}
-		});
+			break;	
 	}
 }
 
@@ -877,11 +944,11 @@ function wrapUp() {
 }
 
 /**
- * Reads HTML of whitelist page and returns an array of div elements, each housing one user's data.
+ * Reads HTML of whitelist/group page and returns an array of div elements, each housing one user's data.
  * @param {string} curHTML - The HTML to parse and search through for user data.
  * @return {Object} userRows - Array of div elements with user data.
  */
-function getWLRows(curHTML) {
+function getUserRows(curHTML) {
 	var tempElem = document.createElement("div");
 	tempElem.style.display = "none";
 	tempElem.innerHTML = curHTML;
@@ -890,34 +957,34 @@ function getWLRows(curHTML) {
 }
 
 /**
- * Recursive function reading all whitelist pages from first to last to read/process each user on the list.
+ * Recursive function reading all whitelist/group pages from first to last to read/process each user on the list.
  * @param {string} currentURL - The base URL for the whitelist.
  * @param {Number} currentPage - The current page to scan. This increments each iteration of the recursion until it reaches the last page.
  */
-function readAllWLPages(currentURL, currentPage) {
+function readAllUserPages(currentURL, currentPage) {
 	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
 	// Asnyc calls keep running, so this check appears mutliple times in the code.
 	if (countToCheck > 0) {
 		var newPage = parseInt(currentPage);
 		var checkURL = currentURL + currentPage;
-		console.log('Scanning WL [' + checkURL + '] for user list');
+		console.log('Scanning user list [' + checkURL + '] for user list');
 		GM_xmlhttpRequest({
 			method: "GET",
 			url: checkURL,
 			onload: function(response) {
 				if (response){
-					var lastPage = wlPages;//getLastPageOfWL(response.responseText);
+					var lastPage = userPages;//getLastPageOfWL(response.responseText);
 					var lastURL = currentURL + lastPage;
 					if (lastPage >= currentPage) {
 						console.log(currentPage + '/' + lastPage);
 						if (apiKey) {
-							var rows = getWLRows(response.responseText);
+							var rows = getUserRows(response.responseText);
 							var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
 							for (var i = 0; i < rows.length; i++) {
 								checkHasGame(rows[i], appID);
 							}
 						}
-						readAllWLPages(currentURL, newPage + 1);
+						readAllUserPages(currentURL, newPage + 1);
 					}
 				} else {
 					console.log('Error loading WL page...');
