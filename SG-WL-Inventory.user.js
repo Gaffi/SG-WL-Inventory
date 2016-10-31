@@ -39,7 +39,7 @@ var whichPage = -1; // 0 = Steam, 1 = SG Group, 2 = SG WL
 var startedWrapUp = false;
 //var groupInput = null;
 var groupIDList = [];
-var userLimit = 600;
+var userLimit = 2000;
 
 var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
 var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
@@ -532,7 +532,7 @@ function checkOwnership() {
 		case 1: // SG Group Page			
 			if (countToCheck>userLimit) {
 				console.log('Too many users in the list. (' + countToCheck + '/' + userLimit + ') Stopping.');
-				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at one time, and the script likely will not work with this many users. (Steam count will reflect a different amount than what is displayed on the SG group page. This is normal.)';
+				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at (10,000 per day), but the script likely will not work with this many users because of user privacy settings. (FYI: Steam count will likely reflect a different amount than what is displayed on the SG group page. This is normal.)';
 			} else if (countToCheck === 0) {
 				console.log('0 users found. Stopping.');
 				document.getElementById('SGLCdlg-output').value = 'There were no users found. This is probably an error in the script, but please make sure you are on a proper group page before trying. If you think you have done everything correctly, please report this error.';
