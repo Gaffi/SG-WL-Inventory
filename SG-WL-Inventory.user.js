@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Library Checker
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.10
+// @version      0.11
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon
@@ -16,6 +16,7 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_log
+// @connect      api.steampowered.com
 // @connect      api.steampowered.com
 // @connect      store.steampowered.com
 // @connect		 www.steamgifts.com
@@ -742,7 +743,7 @@ function importJSONSteamGameDetail(appID) {
 						document.getElementById('SGLCdlg-GameName').value = gameTitle;
 					}
 				} else {
-					countToCheck = 0;
+					countToCheck = -1;
 					totalScanned = 0;
 				}
 			}
@@ -940,8 +941,12 @@ function wrapUp() {
 				libraryDiv.innerHTML = "<span>SG Check</span>";
 			} else {
 				document.getElementById('SGLCdlg-GameName').value = '<not loaded>';
-				document.getElementById('SGLCdlg-output').value = 'There was either an error loading data from Steam. This could be a server or API problem. Please try again.\n\nIf you cannot resolve, please report the error. Thanks!';
 				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
+				if (countToCheck == -1) {
+					document.getElementById('SGLCdlg-output').value = 'There was either an error loading the game data (name) from Steam. This could be a server or API problem, or you entered an invalid appID. Please try again.\n\nIf you cannot resolve, please report the error. Thanks!';
+				} else {
+					document.getElementById('SGLCdlg-output').value = 'There was either an error loading data from Steam. This could be a server or API problem. Please try again.\n\nIf you cannot resolve, please report the error. Thanks!';
+				}
 			}
 		}
 	}
