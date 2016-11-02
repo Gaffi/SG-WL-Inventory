@@ -125,7 +125,7 @@ function injectInterfaceSteam() {
 	}
 	appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
 	getUserCounts();
-	console.log('Whitelist library button loaded without errors.');
+	console.log('Library checking button loaded without errors.');
 }
 
 /**
@@ -187,12 +187,12 @@ function injectInterfaceSG() {
 		dlg.style.top = '150px';
 	});
 
-	console.log('Whitelist library button loaded without errors.');
+	console.log('Library checking button loaded without errors.');
 }
 
 /**
  * Adds hidden display to SteamGifts to review results/kickoff checking process
- * Taken from Sighery's RaCharts Enhancer
+ * Shamelessly stolen from Sighery's RaCharts Enhancer script
  */
 function injectDialog() {
     var dlg = document.createElement('div');
@@ -289,7 +289,7 @@ function injectDialog() {
 	dlgCheckBttnOwn.setAttribute('id', 'SGLCdlg-checkbuttonown');
     dlgCheckBttnOwn.setAttribute('class', 'SGLCdlg-button');
 	dlgCheckBttnOwn.setAttribute('style', 'float:left;');
-    dlgCheckBttnOwn.innerHTML = "Check library!";
+    dlgCheckBttnOwn.innerHTML = "Check library";
 	dlgCheckBttnOwn.addEventListener('click', function() {
         var input = document.getElementById('APIKey');
         localStorage.setItem(input.id, input.value);
@@ -317,7 +317,7 @@ function injectDialog() {
 	dlgCheckBttnWant.setAttribute('id', 'SGLCdlg-checkbuttonwant');
     dlgCheckBttnWant.setAttribute('class', 'SGLCdlg-button');
 	dlgCheckBttnWant.setAttribute('style', 'float:left;');
-    dlgCheckBttnWant.innerHTML = "Check wishlist!";
+    dlgCheckBttnWant.innerHTML = "Check wishlist";
 	dlgCheckBttnWant.addEventListener('click', function() {
         var input = document.getElementById('APIKey');
         localStorage.setItem(input.id, input.value);
@@ -393,7 +393,7 @@ function injectDialog() {
 
 /**
  * Adds styles to SteamGifts to review results
- * Taken from Sighery's RaCharts Enhancer
+ * Shamelessly stolen from Sighery's RaCharts Enhancer script
  */
 function injectDlgStyle() {
     var dialogCSS = [
@@ -566,9 +566,19 @@ function checkOwnership() {
 						importJSONSteamGameDetail(appInput);
 					}
 					console.log('Scanning through ' + countToCheck + ' group users...');
+					
+					// Parse out different variations in URL for alternate group page info screens.
+					// In order to check the users, we have to grab the user page specifically.
 					var groupURL = '';
-					if (window.location.href.indexOf('user') > 0) {
+					var indexUsers = window.location.href.indexOf('/users');
+					var indexStats = window.location.href.indexOf('/stats') ;
+					var indexWishlist = window.location.href.indexOf('/wishlist') ;
+					if (indexUsers > 0) {
 						groupURL = window.location.href + '/search?page=';
+					} else if (indexStats > 0) {
+						groupURL = window.location.href.slice(0,indexStats) + '/users/search?page=';
+					} else if (indexWishlist > 0) {
+						groupURL = window.location.href.slice(0,indexWishlist) + '/users/search?page=';
 					} else {
 						groupURL = window.location.href + '/users/search?page=';
 					}
@@ -817,7 +827,11 @@ function processCount(hasGame) {
 	} else {
 		var dlgProgress = document.getElementById('SGLCdlg-progress');
 		dlgProgress.setAttribute('style','display:block;float:right;');
-		dlgProgress.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + '%</span>';
+		if (whichCheck === 0) {
+			dlgProgress.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + '%</span>';
+		} else {
+			dlgProgress.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Checking wishlists: " + (100*totalScanned/countToCheck).toFixed(1) + '%</span>';
+		}
 	}
 
 	if (totalScanned >= countToCheck) {
