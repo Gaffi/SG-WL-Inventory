@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SteamGifts Library Checker
 // @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.11
+// @version      0.10
 // @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author       Gaffi
 // icon
