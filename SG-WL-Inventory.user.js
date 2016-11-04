@@ -23,6 +23,8 @@
 // @connect 	 steamcommunity.com
 // ==/UserScript==
 
+var cacheVersion = 0.11;
+var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"users":[]}');
 var apiKey = null;
 var appInput = null;
 var totalScanned = 0;
@@ -39,7 +41,7 @@ var whichCheck = -1; // 0 = Own, 1 = Want (wishlist)
 var startedWrapUp = false;
 //var groupInput = null;
 var groupIDList = [];
-var userLimit = 3000;
+var userLimit = 2000;
 
 var keyStorageUpdated = 'SG_WL_Inventory_last_updated';
 var keyStorageOwnData = 'SG_WL_Inventory_user_own_data';
@@ -108,16 +110,6 @@ function injectInterfaceSteam() {
 	libraryExtraDiv.appendChild(libraryDiv);
 	refParent.insertBefore(libraryExtraDiv, refTarget);
 	document.getElementById('whitelist_ownership_checker').addEventListener('click', startCheck, false);
-
-	/*
-	* This section may be implemented later to allow for caching from Steam store. Cache is not shared between SG and Steam, however, and the nature of this process makes me want to avoid it.
-	// Removing Steam's localStorage. This is surely not optimal, but Steam uses up as much localStorage as possible, so there is no way to cache unless we make some room.
-	for (var i = 0; i < localStorage.length; i++){
-		if (localStorage.key(i) != 'APIKey' && localStorage.key(i) != keyStorageUpdated && localStorage.key(i) != keyStorageOwnData && localStorage.key(i) != keyStorageWishData) {
-			localStorage.removeItem(localStorage.key(i));
-		}
-	}
-	*/
 
 	var curURL = window.location.href;
 	if (curURL.lastIndexOf('/')+1 != curURL.length) {
@@ -306,6 +298,9 @@ function injectDialog() {
 				case 2:
 					document.getElementById('SGLCdlg-output').value = 'Checking whitelisted users...';
 					break;
+			}
+			if (whichCheck == 1) {
+				document.getElementById('SGLCdlg-output').value = document.getElementById('SGLCdlg-output').value + '\n\nIf this data has not been cached yet, this may take a few minutes, depending on the size of the userlist. Please be patient.'
 			}
 			startCheck();
 		}
@@ -496,25 +491,50 @@ function injectDlgStyle() {
  * Kicks off checking routine, choosing between group and whitelist modes.
  */
 function startCheck() {
-	console.log('SG User Data Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
 	startedWrapUp = false;
 	var user_own_data = localStorage.getItem(keyStorageOwnData);
 	var user_wish_data = localStorage.getItem(keyStorageWishData);
 
-	// Only use cached values if not using STEAM.
-	if (LAST_UPDATED < cacheDate || whichPage <= 0 || LAST_UPDATED === null) {
-		USER_OWN_DATA = JSON.parse('{"users":[]}');
-		USER_WISH_DATA = JSON.parse('{"users":[]}');
-	} else {
-		if (user_own_data) {
-			USER_OWN_DATA = JSON.parse(user_own_data);
+	// Only use cached values if not using Steam.
+	if (whichPage > 0) {
+		console.log('Not on Steam page, using cache.');
+		console.log('SG User Data Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
+		var USER_TEMP_DATA = null;
+		var user_temp_data = null;
+		if (Date.parse(LAST_UPDATED) < Date.parse(cacheDate) || LAST_UPDATED === null) {
+			console.log('Past update date, creating new cache.');
+			USER_TEMP_DATA = newJSONTemplate;
 		} else {
-			USER_OWN_DATA = JSON.parse('{"users":[]}');
+			console.log('Not past update date, checking previous cache.');
+			switch (whichCheck) {
+				case 0:
+					user_temp_data = user_own_data;
+					break;
+				case 1:
+					user_temp_data = user_wish_data;
+					break;
+			}
+			
+			console.log('Checking for user cache...');
+			if (user_temp_data) {
+				console.log('Cache exists.');
+				USER_TEMP_DATA = JSON.parse(user_temp_data);
+				if (USER_TEMP_DATA.version != cacheVersion) {
+					console.log('Cache version update. Resetting...');
+					USER_TEMP_DATA = newJSONTemplate;
+				}
+			} else {
+				console.log('Cache does not exists. Creating new...');
+				USER_TEMP_DATA = newJSONTemplate;
+			}
 		}
-		if (user_wish_data) {
-			USER_WISH_DATA = JSON.parse(user_wish_data);
-		} else {
-			USER_WISH_DATA = JSON.parse('{"users":[]}');
+		switch (whichCheck) {
+			case 0:
+				USER_OWN_DATA = USER_TEMP_DATA;
+				break;
+			case 1:
+				USER_WISH_DATA = USER_TEMP_DATA;
+				break;
 		}
 	}
 
@@ -542,6 +562,9 @@ function startCheck() {
  * Kicks off ownership checking routine.
  */
 function checkOwnership() {
+	if (countToCheck < 0) {
+		getUserCounts();
+	}
 	switch (whichPage) {
 		case 0: // Steam Store
 				if (appInput) {
@@ -550,9 +573,9 @@ function checkOwnership() {
 				}
 			break;
 		case 1: // SG Group Page
-			if (countToCheck>userLimit) {
+			if (countToCheck > userLimit) {
 				console.log('Too many users in the list. (' + countToCheck + '/' + userLimit + ') Stopping.');
-				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at (10,000 per day), but the script likely will not work with this many users because of user privacy settings. (FYI: Steam count will likely reflect a different amount than what is displayed on the SG group page. This is normal.)';
+				document.getElementById('SGLCdlg-output').value = 'There are more than ' + userLimit + ' users in this list. The Steam API limits how many API calls can be made at (10,000 per day), but the script likely will not work with this many users because of memory issues I have yet to work out.\n\n(FYI: The Steam user count will likely reflect a different amount than what is displayed on the SG group page. This is normal and is a result of a mix of SG user caching and Steam users not being a part of the SG site.)';
 			} else if (countToCheck === 0) {
 				console.log('0 users found. Stopping.');
 				document.getElementById('SGLCdlg-output').value = 'There were no users found. This is probably an error in the script, but please make sure you are on a proper group page before trying. If you think you have done everything correctly, please report this error.';
@@ -665,7 +688,7 @@ function importJSONSteamGameDetail(appID) {
 				}catch(e){
 					console.log("Uncaught error: " + e.name + " -- " + e.message);
 				}
-				console.log(jsonFile);
+				//console.log(jsonFile);
 				if (jsonFile[appID.toString()].success) {
 					gameTitle = jsonFile[appID.toString()].data.name;
 					console.log('Game Title: ' + gameTitle);
@@ -849,24 +872,32 @@ function wrapUp() {
 		console.log("...Not yet, so let's do it.");
 		startedWrapUp = true;
 		if (whichPage > 0) {
-			console.log('Finishing up... writing user data to localStorage');
-			try {localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));}
-			catch(e){
-				console.log(e.message);
+			if ((Date.parse(LAST_UPDATED) < Date.parse(cacheDate)) || LAST_UPDATED === null) {
+				/** Make sure to set the updated date so we know when to do a full refresh */
+				console.log('Setting current date as update date.');
+				localStorage.setItem(keyStorageUpdated, new Date()); 
 			}
-			try {localStorage.setItem(keyStorageWishData, JSON.stringify(USER_WISH_DATA));}
-			catch(e){
-				console.log(e.message);
+			
+			console.log('Finishing up... writing cache data to localStorage');
+			switch (whichCheck) {
+				case 0:
+					try {localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));}
+					catch(e){
+						console.log(e.message);
+					}
+					break;
+				case 1:
+					try {localStorage.setItem(keyStorageWishData, JSON.stringify(USER_WISH_DATA));}
+					catch(e){
+						console.log(e.message);
+					}
+					break;
 			}
 		} else {
 			console.log('Finishing up... ran from Steam, so not writing user data to localStorage');
 		}
 		if (!apiKey) {
 			prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
-		}
-
-		if ((LAST_UPDATED < cacheDate || LAST_UPDATED === null) && whichPage > 0) {
-			localStorage.setItem(keyStorageUpdated, new Date()); /** Make sure to set the updated date so we know when to do a full refresh */
 		}
 
 		// If countToCheck == 0, then we have no user list, or we want to terminate the script.
