@@ -17,7 +17,6 @@
 // @grant        GM_deleteValue
 // @grant        GM_log
 // @connect      api.steampowered.com
-// @connect      api.steampowered.com
 // @connect      store.steampowered.com
 // @connect		 www.steamgifts.com
 // @connect 	 steamcommunity.com
@@ -317,7 +316,6 @@ function checkSteamUserLibrary(steamID, appID) {
 							// Clear API values to prevent more calls to API.
 							processCount(2);
 							GM_log('Error loading user JSON!');
-							//localStorage.removeItem('APIKey');
 							apiKey = null;
 						} else {
 							GM_log("Uncaught error: " + e.name + " -- " + e.message);
@@ -690,10 +688,10 @@ function injectDialog() {
     dlgCacheBttn.innerHTML = "Reset Cache";
 	dlgCacheBttn.addEventListener('click', function() {
         var input = document.getElementById('SGLCdlg-APIKey');
-		GM_removeValue(keyStorageOwnData);
-		GM_removeValue(keyStorageWishData);
-        //localStorage.removeItem(keyStorageOwnData);
-		//localStorage.removeItem(keyStorageWishData);
+		GM_log(GM_getValue(keyStorageWishData));
+		GM_deleteValue(keyStorageOwnData);
+		GM_deleteValue(keyStorageWishData);
+		GM_log(GM_getValue(keyStorageWishData));
     });
 
 	dlgBody.appendChild(document.createElement('br'));
@@ -1028,17 +1026,13 @@ function readStoredUserData(steamID, appID){
  */
 function startCheck() {
 	startedWrapUp = false;
-	//var user_own_data = localStorage.getItem(keyStorageOwnData);
 	var user_own_data = GM_getValue(keyStorageOwnData);
-	//var user_wish_data = localStorage.getItem(keyStorageWishData);
 	var user_wish_data = GM_getValue(keyStorageWishData);
 
 	// Only use cached values if not using Steam.
 	if (whichPage > 0) {
 		GM_log('Not on Steam page, using cache.');
 		GM_log('SG User Data Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
-		var USER_TEMP_DATA = null;
-		var user_temp_data = null;
 		if (Date.parse(LAST_UPDATED) < Date.parse(cacheDate) || LAST_UPDATED === null) {
 			GM_log('Past update date, creating new cache.');
 			USER_TEMP_DATA = newJSONTemplate;
@@ -1046,33 +1040,32 @@ function startCheck() {
 			GM_log('Not past update date, checking previous cache.');
 			switch (whichCheck) {
 				case 0:
-					user_temp_data = user_own_data;
+					if (user_own_data) {
+						GM_log('Cache exists.');
+						USER_OWN_DATA = JSON.parse(user_own_data);
+						if (USER_OWN_DATA.version != cacheVersion) {
+							GM_log('Cache version update. Resetting...');
+							USER_OWN_DATA = newJSONTemplate;
+						}
+					} else {
+						GM_log('Cache does not exist. Creating new...');
+						USER_OWN_DATA = newJSONTemplate;
+					}
 					break;
 				case 1:
-					user_temp_data = user_wish_data;
+					if (user_wish_data) {
+						GM_log('Cache exists.');
+						USER_WISH_DATA = JSON.parse(user_wish_data);
+						if (USER_WISH_DATA.version != cacheVersion) {
+							GM_log('Cache version update. Resetting...');
+							USER_WISH_DATA = newJSONTemplate;
+						}
+					} else {
+						GM_log('Cache does not exist. Creating new...');
+						USER_WISH_DATA = newJSONTemplate;
+					}
 					break;
 			}
-
-			GM_log('Checking for user cache...');
-			if (user_temp_data) {
-				GM_log('Cache exists.');
-				USER_TEMP_DATA = JSON.parse(user_temp_data);
-				if (USER_TEMP_DATA.version != cacheVersion) {
-					GM_log('Cache version update. Resetting...');
-					USER_TEMP_DATA = newJSONTemplate;
-				}
-			} else {
-				GM_log('Cache does not exist. Creating new...');
-				USER_TEMP_DATA = newJSONTemplate;
-			}
-		}
-		switch (whichCheck) {
-			case 0:
-				USER_OWN_DATA = USER_TEMP_DATA;
-				break;
-			case 1:
-				USER_WISH_DATA = USER_TEMP_DATA;
-				break;
 		}
 	}
 
