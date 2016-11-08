@@ -598,7 +598,7 @@ function injectDialog() {
 	dlgCheckBttnOwn.setAttribute('id', 'SGLCdlg-checkbuttonown');
     dlgCheckBttnOwn.setAttribute('class', 'SGLCdlg-button');
 	dlgCheckBttnOwn.setAttribute('style', 'float:left;');
-    dlgCheckBttnOwn.innerHTML = "Check library";
+    dlgCheckBttnOwn.innerHTML = "Who owns?";
 	dlgCheckBttnOwn.addEventListener('click', function() {
         var input = document.getElementById('SGLCdlg-APIKey');
         //localStorage.setItem(input.id, input.value);
@@ -633,7 +633,7 @@ function injectDialog() {
 	dlgCheckBttnWant.setAttribute('id', 'SGLCdlg-checkbuttonwant');
     dlgCheckBttnWant.setAttribute('class', 'SGLCdlg-button');
 	dlgCheckBttnWant.setAttribute('style', 'float:left;');
-    dlgCheckBttnWant.innerHTML = "Check wishlist";
+    dlgCheckBttnWant.innerHTML = "Who wants?";
 	dlgCheckBttnWant.addEventListener('click', function() {
         var input = document.getElementById('SGLCdlg-APIKey');
         //localStorage.setItem(input.id, input.value);
@@ -801,13 +801,13 @@ function injectDlgStyle() {
 			"  background-color: #ddd !important;",
 			"  float: right;",
 			"  margin-left: 35px;",
-			"  width: 200px;",
+			"  width: 300px;",
 			"  line-height: inherit !important;",
 			"}",
 			".SGLCdlg-input-enabled {",
 			"  float: right;",
 			"  margin-left: 35px;",
-			"  width: 200px;",
+			"  width: 300px;",
 			"  line-height: inherit !important;",
 			"}"
     ].join("\n");
@@ -840,10 +840,16 @@ function injectInterfaceSteam() {
 	document.getElementById('whitelist_ownership_checker').addEventListener('click', startCheck, false);
 
 	var curURL = window.location.href;
-	if (curURL.lastIndexOf('/')+1 != curURL.length) {
-		curURL += '/';
+	whichCheck = 0;
+	// This allows for searching on store pages ending with the appid (e.g. /123456/) as well as those ending with additional suffix data (e.g. /?snr=1_5_9__300)
+	if (curURL.indexOf('?') > 0) {
+		appInput = curURL.slice(curURL.lastIndexOf('/',curURL.lastIndexOf('?')-2)+1,curURL.lastIndexOf('/'));
+	} else {
+		if (curURL.lastIndexOf('/')+1 != curURL.length) {
+			curURL += '/';
+		}
+		appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
 	}
-	appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
 	getUserCounts();
 	GM_log('Library checking button loaded without errors.');
 }
@@ -1028,44 +1034,45 @@ function startCheck() {
 	startedWrapUp = false;
 	var user_own_data = GM_getValue(keyStorageOwnData);
 	var user_wish_data = GM_getValue(keyStorageWishData);
+	
+	if (userPages <= 0) {
+		GM_log('0 user pages... trying to load again.');
+		userPages = Math.ceil(countToCheck/25);
+	}
 
-	// Only use cached values if not using Steam.
-	if (whichPage > 0) {
-		GM_log('Not on Steam page, using cache.');
-		GM_log('SG User Data Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
-		if (Date.parse(LAST_UPDATED) < Date.parse(cacheDate) || LAST_UPDATED === null) {
-			GM_log('Past update date, creating new cache.');
-			USER_TEMP_DATA = newJSONTemplate;
-		} else {
-			GM_log('Not past update date, checking previous cache.');
-			switch (whichCheck) {
-				case 0:
-					if (user_own_data) {
-						GM_log('Cache exists.');
-						USER_OWN_DATA = JSON.parse(user_own_data);
-						if (USER_OWN_DATA.version != cacheVersion) {
-							GM_log('Cache version update. Resetting...');
-							USER_OWN_DATA = newJSONTemplate;
-						}
-					} else {
-						GM_log('Cache does not exist. Creating new...');
+	GM_log('SG User Data Last updated: ' + LAST_UPDATED + ' - Needs to be updated if last updated before: ' + cacheDate);
+	if (Date.parse(LAST_UPDATED) < Date.parse(cacheDate) || LAST_UPDATED === null) {
+		GM_log('Past update date, creating new cache.');
+		USER_TEMP_DATA = newJSONTemplate;
+	} else {
+		GM_log('Not past update date, checking previous cache.');
+		switch (whichCheck) {
+			case 0:
+				if (user_own_data) {
+					GM_log('Cache exists.');
+					USER_OWN_DATA = JSON.parse(user_own_data);
+					if (USER_OWN_DATA.version != cacheVersion) {
+						GM_log('Cache version update. Resetting...');
 						USER_OWN_DATA = newJSONTemplate;
 					}
-					break;
-				case 1:
-					if (user_wish_data) {
-						GM_log('Cache exists.');
-						USER_WISH_DATA = JSON.parse(user_wish_data);
-						if (USER_WISH_DATA.version != cacheVersion) {
-							GM_log('Cache version update. Resetting...');
-							USER_WISH_DATA = newJSONTemplate;
-						}
-					} else {
-						GM_log('Cache does not exist. Creating new...');
+				} else {
+					GM_log('Cache does not exist. Creating new...');
+					USER_OWN_DATA = newJSONTemplate;
+				}
+				break;
+			case 1:
+				if (user_wish_data) {
+					GM_log('Cache exists.');
+					USER_WISH_DATA = JSON.parse(user_wish_data);
+					if (USER_WISH_DATA.version != cacheVersion) {
+						GM_log('Cache version update. Resetting...');
 						USER_WISH_DATA = newJSONTemplate;
 					}
-					break;
-			}
+				} else {
+					GM_log('Cache does not exist. Creating new...');
+					USER_WISH_DATA = newJSONTemplate;
+				}
+				break;
 		}
 	}
 
@@ -1101,38 +1108,35 @@ function wrapUp() {
 	if (!startedWrapUp) {
 		GM_log("...Not yet, so let's do it.");
 		startedWrapUp = true;
-		if (whichPage > 0) {
-			if ((Date.parse(LAST_UPDATED) < Date.parse(cacheDate)) || LAST_UPDATED === null) {
-				/** Make sure to set the updated date so we know when to do a full refresh */
-				GM_log('Setting current date as update date.');
-				//localStorage.setItem(keyStorageUpdated, new Date());
-				GM_setValue(keyStorageUpdated, new Date());
-            }
-
-			GM_log('Finishing up... writing cache data to cache.');
-			switch (whichCheck) {
-				case 0:
-					try {
-						GM_setValue(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
-						//localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
-					}
-					catch(e){
-						GM_log(e.message);
-					}
-					break;
-				case 1:
-					try {
-						GM_setValue(keyStorageWishData, JSON.stringify(USER_WISH_DATA));
-						//localStorage.setItem(keyStorageWishData, JSON.stringify(USER_WISH_DATA));
-						}
-					catch(e){
-						GM_log(e.message);
-					}
-					break;
-			}
-		} else {
-			GM_log('Finishing up... ran from Steam, so not writing user data to cache.');
+		if ((Date.parse(LAST_UPDATED) < Date.parse(cacheDate)) || LAST_UPDATED === null) {
+			/** Make sure to set the updated date so we know when to do a full refresh */
+			GM_log('Setting current date as update date.');
+			//localStorage.setItem(keyStorageUpdated, new Date());
+			GM_setValue(keyStorageUpdated, new Date());
 		}
+
+		GM_log('Finishing up... writing cache data to cache.');
+		switch (whichCheck) {
+			case 0:
+				try {
+					GM_setValue(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
+					//localStorage.setItem(keyStorageOwnData, JSON.stringify(USER_OWN_DATA));
+				}
+				catch(e){
+					GM_log(e.message);
+				}
+				break;
+			case 1:
+				try {
+					GM_setValue(keyStorageWishData, JSON.stringify(USER_WISH_DATA));
+					//localStorage.setItem(keyStorageWishData, JSON.stringify(USER_WISH_DATA));
+					}
+				catch(e){
+					GM_log(e.message);
+				}
+				break;
+		}
+
 		if (!apiKey) {
 			prompt("There was a problem with the request. This is possibly due to a bad API key being provided, but it may also be something I did, instead.\n\nPlease check your API key and try again. If the problem continues, please report a bug (copy link below)!","https://github.com/Gaffi/SG-WL-Inventory/issues");
 		}
