@@ -1,28 +1,28 @@
 // ==UserScript==
-// @name         SteamGifts Library Checker
-// @namespace    https://github.com/Gaffi/SG-WL-Inventory
-// @version      0.10
-// @description  Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
-// @author       Gaffi
+// @name		SteamGifts Library Checker
+// @namespace	https://github.com/Gaffi/SG-WL-Inventory
+// @version		0.12
+// @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
+// @author		Gaffi
 // icon
-// @downloadURL  https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.user.js
-// @updateURL    https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
-// @supportURL   https://www.steamgifts.com/discussion/HipoH/
-// @match        https://www.steamgifts.com/account/manage/whitelist*
-// @match 		 https://www.steamgifts.com/group/*
-// @match		 http://store.steampowered.com/app/*
-// @grant        GM_xmlhttpRequest
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @grant        GM_deleteValue
-// @grant        GM_log
-// @connect      api.steampowered.com
-// @connect      store.steampowered.com
-// @connect		 www.steamgifts.com
-// @connect 	 steamcommunity.com
+// @downloadURL	https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.user.js
+// @updateURL	https://github.com/Gaffi/SG-WL-Inventory/raw/master/SG-WL-Inventory.meta.js
+// @supportURL	https://www.steamgifts.com/discussion/HipoH/
+// @match		https://www.steamgifts.com/account/manage/whitelist*
+// @match		https://www.steamgifts.com/group/*
+// @match		http://store.steampowered.com/app/*
+// @grant		GM_xmlhttpRequest
+// @grant		GM_setValue
+// @grant		GM_getValue
+// @grant		GM_deleteValue
+// @grant		GM_log
+// @connect		api.steampowered.com
+// @connect		store.steampowered.com
+// @connect		www.steamgifts.com
+// @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.11;
+var cacheVersion = 0.12;
 var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"users":[]}');
 var apiKey = null;
 var appInput = null;
@@ -56,41 +56,39 @@ var LAST_UPDATED = GM_getValue(keyStorageUpdated);
 var USER_OWN_DATA, USER_WISH_DATA;
 
 if (!Array.prototype.indexOf) {
-  Array.prototype.indexOf = function (obj, fromIndex) {
-    if (fromIndex === null) {
-        fromIndex = 0;
-    } else if (fromIndex < 0) {
-        fromIndex = Math.max(0, this.length + fromIndex);
-    }
-    for (var i = fromIndex, j = this.length; i < j; i++) {
-        if (this[i] === obj)
-            return i;
-    }
-    return -1;
-  };
+	Array.prototype.indexOf = function (obj, fromIndex) {
+	if (fromIndex === null) {
+		fromIndex = 0;
+	} else if (fromIndex < 0) {
+		fromIndex = Math.max(0, this.length + fromIndex);
+	}
+	for (var i = fromIndex, j = this.length; i < j; i++) {
+		if (this[i] === obj)
+			return i;
+	}
+	return -1;
+	};
 }
 
-window.onload = function() {
-	//apiKey = localStorage.getItem('APIKey');
-	apiKey = GM_getValue('APIKey');
+//apiKey = localStorage.getItem('APIKey');
+apiKey = GM_getValue('APIKey');
 
-	if (window.location.href.indexOf(urlSteamApp)>0) {
-		GM_log(logHeader + 'SteamGifts Library Checker Injecting Steam Store');
-		whichPage = 0;
-		injectInterfaceSteam();
+if (window.location.href.indexOf(urlSteamApp)>0) {
+	GM_log(logHeader + 'SteamGifts Library Checker Injecting Steam Store');
+	whichPage = 0;
+	injectInterfaceSteam();
+} else {
+	if (window.location.href.indexOf(urlGroup)>0) {
+		GM_log(logHeader + 'SteamGifts Library Checker Injecting SteamGifts Group Page');
+		whichPage = 1;
 	} else {
-		if (window.location.href.indexOf(urlGroup)>0) {
-			GM_log(logHeader + 'SteamGifts Library Checker Injecting SteamGifts Group Page');
-			whichPage = 1;
-		} else {
-			GM_log(logHeader + 'SteamGifts Library Checker Injecting SteamGifts Whitelist Page');
-			whichPage = 2;
-		}
-		injectDialog();
-		injectDlgStyle();
-		injectInterfaceSG();
+		GM_log(logHeader + 'SteamGifts Library Checker Injecting SteamGifts Whitelist Page');
+		whichPage = 2;
 	}
-};
+	injectDialog();
+	injectDlgStyle();
+	injectInterfaceSG();
+}
 
 /**
  * Adds user data from Steam API to pre-load JSON
@@ -137,7 +135,7 @@ function addUserToJSONWishlist(wishlistHTML, steamID) {
 			break;
 		}
 	}
-	
+
 	if (!alreadyHave) {
 		GM_log(logHeader + "We do not have data for this user, so adding...");
 		// First check is YOU/user running the script, second check is a normal user.
@@ -170,10 +168,10 @@ function addUserToJSONWishlist(wishlistHTML, steamID) {
  * @param {Number} appID - Steam game ID to check ownership of
  */
 function checkHasGameInData(row, appID) {
-    GM_xmlhttpRequest({
-        method: "GET",
-        url: 'https://www.steamgifts.com/user/' + row.getElementsByClassName('table__column__heading')[0].innerHTML,
-        onload: function(response) {
+	GM_xmlhttpRequest({
+		method: "GET",
+		url: 'https://www.steamgifts.com/user/' + row.getElementsByClassName('table__column__heading')[0].innerHTML,
+		onload: function(response) {
 			// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
 			// Asnyc calls keep running, so this check appears mutliple times in the code.
 			if (countToCheck > 0 ) {
@@ -225,8 +223,8 @@ function checkHasGameInData(row, appID) {
 					}
 				}
 			}
-        }
-    });
+		}
+	});
 }
 
 /**
@@ -235,22 +233,22 @@ function checkHasGameInData(row, appID) {
  * @param {Number} appID - Steam game ID to check ownership of
  */
 function checkSteamUserLibrary(steamID, appID) {
-    // If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
+	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
 	// Asnyc calls keep running, so this check appears mutliple times in the code.
 	// apiKey check here plays a similar role.
-    if (apiKey && countToCheck > 0 && steamID) {
-        var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
+	if (apiKey && countToCheck > 0 && steamID) {
+		var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
 		//GM_log(logHeader + link);
-        var jsonFile;
-        GM_xmlhttpRequest ({
-            method: "GET",
-            url: link,
-            timeout: 5000,
-            onload: function(response) {
-                if (response){
-                    try{
-                        jsonFile = JSON.parse(response.responseText);
-                    }catch(e){
+		var jsonFile;
+		GM_xmlhttpRequest ({
+			method: "GET",
+			url: link,
+			timeout: 5000,
+			onload: function(response) {
+				if (response){
+					try{
+						jsonFile = JSON.parse(response.responseText);
+					}catch(e){
 						var badAPIMsg = "Unexpected token < in JSON";
 						if (e.name == 'SyntaxError' && e.message.slice(0,badAPIMsg.length) == badAPIMsg) {
 							// Clear API values to prevent more calls to API.
@@ -262,14 +260,14 @@ function checkSteamUserLibrary(steamID, appID) {
 						} else {
 							GM_log(logHeader + "Uncaught error: " + e.name + " -- " + e.message);
 						}
-                    }
+					}
 					if (jsonFile) {
 						addUserToJSONOwnership(JSON.parse(response.responseText), steamID);
 						readStoredUserData(steamID, appID);
 					}
 				}
-            },
-        });
+			},
+		});
 	}
 }
 
@@ -281,9 +279,9 @@ function checkSteamUserLibrary(steamID, appID) {
  * @param {Number} appID - Steam game ID to check
  */
 function checkSteamUserWishlist(steamID, appID) {
-    if (steamID && appID) {
-        var link = 'http://steamcommunity.com/profiles/' + steamID + '/wishlist';
-        GM_xmlhttpRequest({
+	if (steamID && appID) {
+		var link = 'http://steamcommunity.com/profiles/' + steamID + '/wishlist';
+		GM_xmlhttpRequest({
 			method: "GET",
 			url: link,
 			onload: function(response) {
@@ -313,7 +311,7 @@ function clickButtonOwn() {
 	GM_setValue('SGLCdlg-APIKey', input.value);
 	document.getElementById('SGLCdlg-GameName').value = null;
 	document.getElementById('SGLCdlg-output').value = null;
-	if(document.getElementById('SGLCdlg-AppID').value.length ===  0) {
+	if(document.getElementById('SGLCdlg-AppID').value.length ===	0) {
 		document.getElementById('SGLCdlg-output').value = 'Please enter a valid app ID...';
 	} else {
 		whichCheck = 0;
@@ -343,7 +341,7 @@ function clickButtonWant() {
 	GM_setValue('SGLCdlg-APIKey', input.value);
 	document.getElementById('SGLCdlg-GameName').value = null;
 	document.getElementById('SGLCdlg-output').value = null;
-	if(document.getElementById('SGLCdlg-AppID').value.length ===  0) {
+	if(document.getElementById('SGLCdlg-AppID').value.length ===	0) {
 		document.getElementById('SGLCdlg-output').value = 'Please enter a valid app ID...';
 	} else {
 		whichCheck = 1;
@@ -371,15 +369,15 @@ function clickButtonWant() {
 function findUserInJSON(JSONArray, steamID) {
 	var returnJSON = null;
 	GM_log(logHeader + 'Scanning stored user data for user ' + steamID);
-    for (var i = 0; i < JSONArray.length; i++) {
-        if (JSONArray[i].userID == steamID) {
+	for (var i = 0; i < JSONArray.length; i++) {
+		if (JSONArray[i].userID == steamID) {
 			GM_log(logHeader + 'Found user ' + steamID + ' in stored data.');
 			returnJSON = JSONArray[i].userData;
-            return returnJSON;
+			return returnJSON;
 		}
-    }
+	}
 	GM_log(logHeader + 'Could not find user ' + steamID + ' in stored data.');
-    return null;
+	return null;
 }
 
 /**
@@ -404,7 +402,7 @@ function findGameInJSON(JSONArray, appID, steamID) {
 			}
 		}
 	}
-    return hasGame;
+	return hasGame;
 }
 
 /**
@@ -460,7 +458,7 @@ function getUserRows(curHTML) {
 	tempElem.style.display = "none";
 	tempElem.innerHTML = curHTML;
 	var userRows = tempElem.getElementsByClassName("table__row-inner-wrap");
-    return userRows;
+	return userRows;
 }
 
 /**
@@ -490,8 +488,16 @@ function importJSONSteamGameDetail(appID) {
 						document.getElementById('SGLCdlg-GameName').value = gameTitle;
 					}
 				} else {
-					countToCheck = -1;
-					totalScanned = 0;
+					/* We will not kill the search if the app ID is bad.
+						If the game is simply no longer listed for sale, we still want to check ownership.
+					*/
+					gameTitle = 'Unlisted/removed/invalid app ID';
+					GM_log(logHeader + 'Game Title: ' + gameTitle);
+					if (whichPage > 0 && document.getElementById('SGLCdlg-GameName').value.length === 0) {
+						document.getElementById('SGLCdlg-GameName').value = appID;
+					}
+					//countToCheck = -1;
+					//totalScanned = 0;
 				}
 			}
 		},
@@ -503,119 +509,118 @@ function importJSONSteamGameDetail(appID) {
  * Shamelessly stolen from Sighery's RaCharts Enhancer script
  */
 function injectDialog() {
-    var dlg = document.createElement('div');
-    dlg.setAttribute('id', 'black-background');
+	var dlg = document.createElement('div');
+	dlg.setAttribute('id', 'black-background');
 	var dlgMainDiv = document.createElement('div');
-    dlg.appendChild(dlgMainDiv);
-    document.body.insertBefore(dlg, document.body.children[0]);
+	dlg.appendChild(dlgMainDiv);
+	document.body.insertBefore(dlg, document.body.children[0]);
 
-    dlgMainDiv.setAttribute('id', 'SGLCdlg');
+	dlgMainDiv.setAttribute('id', 'SGLCdlg');
 	var dlgHeader = document.createElement('div');
-    dlgMainDiv.appendChild(dlgHeader);
+	dlgMainDiv.appendChild(dlgHeader);
 
-    dlgHeader.setAttribute('id', 'SGLCdlg-header');
+	dlgHeader.setAttribute('id', 'SGLCdlg-header');
 	var dlgHdrSecDiv = document.createElement('div');
-    dlgHeader.appendChild(dlgHdrSecDiv);
-    dlgHdrSecDiv.setAttribute('id', 'SGLCdlg-header-title');
-    dlgHdrSecDiv.innerHTML = "Gaffi's SteamGifts Library Checker";
+	dlgHeader.appendChild(dlgHdrSecDiv);
+	dlgHdrSecDiv.setAttribute('id', 'SGLCdlg-header-title');
+	dlgHdrSecDiv.innerHTML = "Gaffi's SteamGifts Library Checker";
 
 	var dlgHdrBttn = document.createElement('button');
-    dlgHeader.appendChild(dlgHdrBttn);
-    dlgHdrBttn.setAttribute('id', 'closeSGLC');
+	dlgHeader.appendChild(dlgHdrBttn);
+	dlgHdrBttn.setAttribute('id', 'closeSGLC');
 
 	dlgHdrBttn.addEventListener('click', function() {
-        var blackbg = document.getElementById('black-background');
-        var dlg = document.getElementById('SGLCdlg');
+		var blackbg = document.getElementById('black-background');
+		var dlg = document.getElementById('SGLCdlg');
 
-        blackbg.style.display = 'none';
-        dlg.style.display = 'none';
-    });
+		blackbg.style.display = 'none';
+		dlg.style.display = 'none';
+	});
 
 	var dlgHdrBttnI = document.createElement('i');
-    dlgHdrBttn.appendChild(dlgHdrBttnI);
-    dlgHdrBttnI.setAttribute('class', 'fa fa-times');
-    dlgHdrBttnI.style.fontSize = "25px";
-    dlgHdrBttnI.style.marginTop = "-6px";
-
+	dlgHdrBttn.appendChild(dlgHdrBttnI);
+	dlgHdrBttnI.setAttribute('class', 'fa fa-times');
+	dlgHdrBttnI.style.fontSize = "25px";
+	dlgHdrBttnI.style.marginTop = "-6px";
 
 	var dlgBody = document.createElement('div');
-    dlgMainDiv.appendChild(dlgBody);
-    dlgBody.setAttribute('id', 'SGLCdlg-body');
+	dlgMainDiv.appendChild(dlgBody);
+	dlgBody.setAttribute('id', 'SGLCdlg-body');
 
-    var dlgTable = document.createElement('table');
+	var dlgTable = document.createElement('table');
 	dlgTable.setAttribute('style', 'width: 100%');
 
-    var rowAPIKey = dlgTable.insertRow(0);
-    var rowAPIKeyLabel = rowAPIKey.insertCell(0);
+	var rowAPIKey = dlgTable.insertRow(0);
+	var rowAPIKeyLabel = rowAPIKey.insertCell(0);
 	var rowAPIKeyValue = rowAPIKey.insertCell(1);
 	var rowAppID = dlgTable.insertRow(1);
-    var rowAppIDLabel = rowAppID.insertCell(0);
+	var rowAppIDLabel = rowAppID.insertCell(0);
 	var rowAppIDValue = rowAppID.insertCell(1);
 	var rowGameName = dlgTable.insertRow(2);
-    var rowGameNameLabel = rowGameName.insertCell(0);
+	var rowGameNameLabel = rowGameName.insertCell(0);
 	var rowGameNameResult = rowGameName.insertCell(1);
 	var rowButtons = dlgTable.insertRow(3);
-    var rowButtonsCheck = rowButtons.insertCell(0);
+	var rowButtonsCheck = rowButtons.insertCell(0);
 	var rowButtonsProgress = rowButtons.insertCell(1);
 
 	dlgBody.appendChild(dlgTable);
 
 	var dlgAPILab = document.createElement('label');
-    rowAPIKeyLabel.appendChild(dlgAPILab);
-    dlgAPILab.htmlFor = "APIKey";
-    dlgAPILab.innerHTML = "API Key:";
+	rowAPIKeyLabel.appendChild(dlgAPILab);
+	dlgAPILab.htmlFor = "APIKey";
+	dlgAPILab.innerHTML = "API Key:";
 	var dlgAPIInput = document.createElement('input');
-    rowAPIKeyValue.appendChild(dlgAPIInput);
-    dlgAPIInput.type = "textarea";
-    dlgAPIInput.setAttribute('id', 'SGLCdlg-APIKey');
+	rowAPIKeyValue.appendChild(dlgAPIInput);
+	dlgAPIInput.type = "textarea";
+	dlgAPIInput.setAttribute('id', 'SGLCdlg-APIKey');
 	dlgAPIInput.setAttribute('class', 'SGLCdlg-input-enabled input');
 	dlgAPIInput.value = apiKey;
 
 	var dlgAppIDLab = document.createElement('label');
-    rowAppIDLabel.appendChild(dlgAppIDLab);
-    dlgAppIDLab.htmlFor = "SGLCdlg-AppID";
-    dlgAppIDLab.innerHTML = "App ID:";
+	rowAppIDLabel.appendChild(dlgAppIDLab);
+	dlgAppIDLab.htmlFor = "SGLCdlg-AppID";
+	dlgAppIDLab.innerHTML = "App ID:";
 	var dlgAppIDInput = document.createElement('input');
-    rowAppIDValue.appendChild(dlgAppIDInput);
-    dlgAppIDInput.type = "textarea";
-    dlgAppIDInput.setAttribute('id', 'SGLCdlg-AppID');
+	rowAppIDValue.appendChild(dlgAppIDInput);
+	dlgAppIDInput.type = "textarea";
+	dlgAppIDInput.setAttribute('id', 'SGLCdlg-AppID');
 	dlgAppIDInput.setAttribute('class', 'SGLCdlg-input-enabled');
 
 	var dlgGameNameLab = document.createElement('label');
-    rowGameNameLabel.appendChild(dlgGameNameLab);
-    dlgGameNameLab.htmlFor = "SGLCdlg-GameName";
-    dlgGameNameLab.innerHTML = "Game Name:";
+	rowGameNameLabel.appendChild(dlgGameNameLab);
+	dlgGameNameLab.htmlFor = "SGLCdlg-GameName";
+	dlgGameNameLab.innerHTML = "Game Name:";
 	var dlgGameNameResult = document.createElement('input');
-    rowGameNameResult.appendChild(dlgGameNameResult);
-    dlgGameNameResult.type = "textarea";
+	rowGameNameResult.appendChild(dlgGameNameResult);
+	dlgGameNameResult.type = "textarea";
 	dlgGameNameResult.readOnly = true;
 	dlgGameNameResult.setAttribute('class', 'SGLCdlg-input-disabled input');
-    dlgGameNameResult.setAttribute('id', 'SGLCdlg-GameName');
+	dlgGameNameResult.setAttribute('id', 'SGLCdlg-GameName');
 
 	var dlgCheckBttnOwn = document.createElement('button');
-    dlgBody.appendChild(dlgCheckBttnOwn);
+	dlgBody.appendChild(dlgCheckBttnOwn);
 	dlgCheckBttnOwn.setAttribute('id', 'SGLCdlg-checkbuttonown');
-    dlgCheckBttnOwn.setAttribute('class', 'SGLCdlg-button');
+	dlgCheckBttnOwn.setAttribute('class', 'SGLCdlg-button');
 	dlgCheckBttnOwn.setAttribute('style', 'float:left;');
-    dlgCheckBttnOwn.innerHTML = "Who owns?";
+	dlgCheckBttnOwn.innerHTML = "Who owns?";
 	dlgCheckBttnOwn.addEventListener('click', clickButtonOwn);
 	rowButtonsCheck.appendChild(dlgCheckBttnOwn);
 
 	var dlgCheckBttnWant = document.createElement('button');
-    dlgBody.appendChild(dlgCheckBttnWant);
+	dlgBody.appendChild(dlgCheckBttnWant);
 	dlgCheckBttnWant.setAttribute('id', 'SGLCdlg-checkbuttonwant');
-    dlgCheckBttnWant.setAttribute('class', 'SGLCdlg-button');
+	dlgCheckBttnWant.setAttribute('class', 'SGLCdlg-button');
 	dlgCheckBttnWant.setAttribute('style', 'float:left;');
-    dlgCheckBttnWant.innerHTML = "Who wants?";
+	dlgCheckBttnWant.innerHTML = "Who wants?";
 	dlgCheckBttnWant.addEventListener('click', clickButtonWant);
 	rowButtonsCheck.appendChild(dlgCheckBttnWant);
 
 	var dlgProgress = document.createElement('button');
-    dlgBody.appendChild(dlgProgress);
-    dlgProgress.setAttribute('id', 'SGLCdlg-progress');
+	dlgBody.appendChild(dlgProgress);
+	dlgProgress.setAttribute('id', 'SGLCdlg-progress');
 	dlgProgress.setAttribute('class', 'SGLCdlg-button');
 	dlgProgress.setAttribute('style','display:none;float:right;');
-    dlgProgress.innerHTML = "";
+	dlgProgress.innerHTML = "";
 	rowButtonsProgress.appendChild(dlgProgress);
 
 	dlgBody.appendChild(document.createElement('br'));
@@ -631,29 +636,28 @@ function injectDialog() {
 	dlgBody.appendChild(document.createElement('br'));
 
 	var dlgCacheBttn = document.createElement('button');
-    dlgBody.appendChild(dlgCacheBttn);
+	dlgBody.appendChild(dlgCacheBttn);
 	dlgCacheBttn.setAttribute('id', 'SGLCdlg-cachebutton');
-    dlgCacheBttn.setAttribute('class', 'SGLCdlg-button');
+	dlgCacheBttn.setAttribute('class', 'SGLCdlg-button');
 	dlgCacheBttn.setAttribute('style', 'float:left;');
-    dlgCacheBttn.innerHTML = "Reset Cache";
+	dlgCacheBttn.innerHTML = "Reset Cache";
 	dlgCacheBttn.addEventListener('click', resetCache);
 
 	dlgBody.appendChild(document.createElement('br'));
 
 	var dlgInfo = document.createElement('h2');
-    dlgBody.appendChild(dlgInfo);
-    dlgInfo.style.float = "right";
+	dlgBody.appendChild(dlgInfo);
+	dlgInfo.style.float = "right";
 	var dlgInfoA = document.createElement('a');
-    dlgInfo.appendChild(dlgInfoA);
-    dlgInfoA.href = "https://www.steamgifts.com/discussion/HipoH/";
-    dlgInfoA.style.color = "#FFFFFF";
-    dlgInfoA.style.fontSize = "20px";
-    dlgInfoA.style.fontStyle = "italic";
-    dlgInfoA.style.textDecoration = "underline";
-    dlgInfoA.innerHTML = "Info";
+	dlgInfo.appendChild(dlgInfoA);
+	dlgInfoA.href = "https://www.steamgifts.com/discussion/HipoH/";
+	dlgInfoA.style.color = "#FFFFFF";
+	dlgInfoA.style.fontSize = "20px";
+	dlgInfoA.style.fontStyle = "italic";
+	dlgInfoA.style.textDecoration = "underline";
+	dlgInfoA.innerHTML = "Info";
 
 	dlgBody.appendChild(document.createElement('br'));
-
 }
 
 /**
@@ -661,104 +665,104 @@ function injectDialog() {
  * Shamelessly stolen from Sighery's RaCharts Enhancer script
  */
 function injectDlgStyle() {
-    var dialogCSS = [
-            "#black-background {",
-            "  display: none;",
-            "  width: 100%;",
-            "  height: 100%;",
-            "  position: fixed;",
-            "  top: 0px;",
-            "  left: 0px;",
-            "  background-color: rgba(0, 0, 0, 0.75);",
-            "  z-index: 8888;",
-            "}",
-            "#SGLCdlg{",
-            "  display: none;",
-            "  position: fixed;",
-            "  width: 500px;",
-            "  z-index: 9999;",
-            "  border-radius: 10px;",
-            "  background-color: #7c7d7e;",
-            "}",
-            "#SGLCdlg-header {",
-            "  background-color: #6D84B4;",
-            "  padding: 10px;",
-            "  padding-bottom: 30px;",
-            "  margin: 10px 10px 10px 10px;",
-            "  color: white;",
-            "  font-size: 20px;",
-            "}",
-            "#SGLCdlg-header-title {",
-            "  float: left;",
-            "}",
-            "#SGLCdlg-body{",
-            "  clear: both;",
-            "  background-color: #C3C3C3;",
-            "  color: white;",
-            "  font-size: 14px;",
-            "  padding: 10px;",
-            "  margin: 0px 10px 10px 10px;",
-            "}",
-            "#closeSGLC {",
-            "  background-color: transparent;",
-            "  color: white;",
-            "  float: right;",
-            "  border: none;",
-            "  font-size: 25px;",
-            "  margin-top: -5px;",
-            "  opacity: 0.7;",
-            "}",
-            ".SGLCdlg-button{",
-            "  background-color: #fff;",
-            "  border: 2px solid #333;",
-            "  box-shadow: 1px 1px 0 #333,",
-            "              2px 2px 0 #333,",
-            "              3px 3px 0 #333,",
-            "              4px 4px 0 #333,",
-            "              5px 5px 0 #333;",
-            "  color: #333;",
-            "  display: inline-block;",
-            "  padding: 4px 6px;",
-            "  position: relative;",
-            "  text-decoration: none;",
-            "  text-transform: uppercase;",
-            "  -webkit-transition: .1s;",
-            "     -moz-transition: .1s;",
-            "      -ms-transition: .1s;",
-            "       -o-transition: .1s;",
-            "          transition: .1s;",
-            "}",
-            ".SGLCdlg-button:hover,",
-            ".SGLCdlg-button:focus {",
-            "  background-color: #edd;",
-            "}",
-			".SGLCdlg-button:disabled {",
-			"opacity: 0.65;",
-			"cursor: not-allowed;",
-			"}",
-            ".SGLCdlg-button:active {",
-            "  box-shadow: 1px 1px 0 #333;",
-            "  left: 4px;",
-            "  top: 4px;",
-            "}",
-			".SGLCdlg-input-disabled {",
-			"  background-color: #ddd !important;",
-			"  float: right;",
-			"  margin-left: 35px;",
-			"  width: 300px;",
-			"  line-height: inherit !important;",
-			"}",
-			".SGLCdlg-input-enabled {",
-			"  float: right;",
-			"  margin-left: 35px;",
-			"  width: 300px;",
-			"  line-height: inherit !important;",
-			"}"
-    ].join("\n");
-    var node = document.createElement('style');
-    node.type = "text/css";
-    node.appendChild(document.createTextNode(dialogCSS));
-    document.getElementsByTagName('head')[0].appendChild(node);
+	var dialogCSS = [
+		"#black-background {",
+		"	display: none;",
+		"	width: 100%;",
+		"	height: 100%;",
+		"	position: fixed;",
+		"	top: 0px;",
+		"	left: 0px;",
+		"	background-color: rgba(0, 0, 0, 0.75);",
+		"	z-index: 8888;",
+		"}",
+		"#SGLCdlg{",
+		"	display: none;",
+		"	position: fixed;",
+		"	width: 500px;",
+		"	z-index: 9999;",
+		"	border-radius: 10px;",
+		"	background-color: #7c7d7e;",
+		"}",
+		"#SGLCdlg-header {",
+		"	background-color: #6D84B4;",
+		"	padding: 10px;",
+		"	padding-bottom: 30px;",
+		"	margin: 10px 10px 10px 10px;",
+		"	color: white;",
+		"	font-size: 20px;",
+		"}",
+		"#SGLCdlg-header-title {",
+		"	float: left;",
+		"}",
+		"#SGLCdlg-body{",
+		"	clear: both;",
+		"	background-color: #C3C3C3;",
+		"	color: white;",
+		"	font-size: 14px;",
+		"	padding: 10px;",
+		"	margin: 0px 10px 10px 10px;",
+		"}",
+		"#closeSGLC {",
+		"	background-color: transparent;",
+		"	color: white;",
+		"	float: right;",
+		"	border: none;",
+		"	font-size: 25px;",
+		"	margin-top: -5px;",
+		"	opacity: 0.7;",
+		"}",
+		".SGLCdlg-button{",
+		"	background-color: #fff;",
+		"	border: 2px solid #333;",
+		"	box-shadow: 1px 1px 0 #333,",
+		"		2px 2px 0 #333,",
+		"		3px 3px 0 #333,",
+		"		4px 4px 0 #333,",
+		"		5px 5px 0 #333;",
+		"	color: #333;",
+		"	display: inline-block;",
+		"	padding: 4px 6px;",
+		"	position: relative;",
+		"	text-decoration: none;",
+		"	text-transform: uppercase;",
+		"	-webkit-transition: .1s;",
+		"	-moz-transition: .1s;",
+		"	-ms-transition: .1s;",
+		"	-o-transition: .1s;",
+		"	transition: .1s;",
+		"}",
+		".SGLCdlg-button:hover,",
+		".SGLCdlg-button:focus {",
+		"	background-color: #edd;",
+		"}",
+		".SGLCdlg-button:disabled {",
+		"opacity: 0.65;",
+		"cursor: not-allowed;",
+		"}",
+		".SGLCdlg-button:active {",
+		"	box-shadow: 1px 1px 0 #333;",
+		"	left: 4px;",
+		"	top: 4px;",
+		"}",
+		".SGLCdlg-input-disabled {",
+		"	background-color: #ddd !important;",
+		"	float: right;",
+		"	margin-left: 35px;",
+		"	width: 300px;",
+		"	line-height: inherit !important;",
+		"}",
+		".SGLCdlg-input-enabled {",
+		"	float: right;",
+		"	margin-left: 35px;",
+		"	width: 300px;",
+		"	line-height: inherit !important;",
+		"}"
+	].join("\n");
+	var node = document.createElement('style');
+	node.type = "text/css";
+	node.appendChild(document.createTextNode(dialogCSS));
+	document.getElementsByTagName('head')[0].appendChild(node);
 }
 
 /**
@@ -766,15 +770,15 @@ function injectDlgStyle() {
  * Button placement taken from VonRaven at https://www.steamgifts.com/go/comment/MU3ojjL, http://pastebin.com/kRKv53uv
  */
 function injectInterfaceSteam() {
-    var refTarget, refParent;
-    refTarget = document.getElementsByClassName('apphub_AppName')[0];
-    refParent = document.getElementsByClassName('apphub_HeaderStandardTop')[0];
+	var refTarget, refParent;
+	refTarget = document.getElementsByClassName('apphub_AppName')[0];
+	refParent = document.getElementsByClassName('apphub_HeaderStandardTop')[0];
 
 	GM_log(logHeader + 'Creating button/progress bar on Steam store...');
 	libraryDiv = document.createElement("DIV");
-    libraryDiv.id = "whitelist_ownership_checker";
-    libraryDiv.className = 'btnv6_blue_hoverfade btn_medium';
-    libraryDiv.innerHTML = "<span>SG Check</span>";
+	libraryDiv.id = "whitelist_ownership_checker";
+	libraryDiv.className = 'btnv6_blue_hoverfade btn_medium';
+	libraryDiv.innerHTML = "<span>SG Check</span>";
 
 	var libraryExtraDiv = document.createElement("DIV");
 	libraryExtraDiv.className = 'apphub_OtherSiteInfo';
@@ -803,8 +807,8 @@ function injectInterfaceSteam() {
  */
 function injectInterfaceSG() {
 	var bFound=0;
-    var i=0;
-    var refTarget;
+	var i=0;
+	var refTarget;
 	var searchElement = '';
 	var searchHTML = '';
 	switch (whichPage) {
@@ -818,12 +822,12 @@ function injectInterfaceSG() {
 			break;
 	}
 
-    while(bFound===0) {
+	while(bFound===0) {
 		refTarget = document.getElementsByClassName(searchElement)[i];
 		if (refTarget.innerHTML.indexOf(searchHTML) >= 0) {
 			bFound = 1;
 		} else i++;
-    }
+	}
 
 	GM_log(logHeader + 'Creating button/progress bar on SteamGifts...');
 	libraryDiv = document.createElement("DIV");
@@ -842,7 +846,7 @@ function injectInterfaceSG() {
 	}
 	getUserCounts();
 
-    refTarget.parentNode.appendChild(libraryDiv);
+	refTarget.parentNode.appendChild(libraryDiv);
 
 	libraryDiv.addEventListener('click', function() {
 		var blackbg = document.getElementById('black-background');
