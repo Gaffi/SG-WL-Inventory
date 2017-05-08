@@ -8,7 +8,7 @@ I looked to see if there were any scripts out there to do this for me, but alas,
 
 I've built in some basic functionality that will scan through your whitelist for an appID (only one game at a time, and no subs at this point), and report a count of how many in your whitelist have it, and what the ratio to your overall list size is. As of right now, it should work on any active page of your WL. I have also been using it with [m0l0's Whitelist Wishlist and Tools](https://www.steamgifts.com/discussion/TSa4B/) with no (obvious) conflicts, though your header may get a little crowded if you use both.
 
-The script uses the Steam API key (you can get yours [here](https://steamcommunity.com/dev/apikey). The first time you use the script, if you're not already using [Sighery's RaChart™ Enhancer](https://www.steamgifts.com/discussion/riOvr/)), you'll be prompted for your API key. After that, assuming you entered a valid key, the rest should work without needing to re-enter it. If there are problems, the script may prompt you to enter the API key again. I'm still working on making this as seamless as possible, but if you do hit an error, you will likely get hit with a bunch of alert pop-ups. Sorry!
+The script uses the Steam API key (you can get yours [here](https://steamcommunity.com/dev/apikey). Plug this value into the appropriate field and the rest should work without needing to re-enter it. If there are errors, the script may prompt you to enter the API key again.
 
 If you find any bug, problems, or miscellaneous weirdness, please report them on the [GitHub issue log](https://github.com/Gaffi/SG-WL-Inventory/issues).
 
