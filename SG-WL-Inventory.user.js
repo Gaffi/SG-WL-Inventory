@@ -22,7 +22,7 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.12;
+var cacheVersion = 0.13;
 var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"users":[]}');
 var apiKey = null;
 var appInput = null;
@@ -51,7 +51,6 @@ var keyStorageWishData = 'SG_WL_Inventory_user_wish_data';
 var cacheDate = new Date();
 cacheDate.setDate(new Date().getDate()-1);
 
-//var LAST_UPDATED = localStorage.getItem(keyStorageUpdated);
 var LAST_UPDATED = GM_getValue(keyStorageUpdated);
 var USER_OWN_DATA, USER_WISH_DATA;
 
@@ -70,8 +69,7 @@ if (!Array.prototype.indexOf) {
 	};
 }
 
-//apiKey = localStorage.getItem('APIKey');
-apiKey = GM_getValue('APIKey');
+apiKey = GM_getValue('SGLCdlg-APIKey');
 
 if (window.location.href.indexOf(urlSteamApp)>0) {
 	GM_log(logHeader + 'SteamGifts Library Checker Injecting Steam Store');
@@ -1160,7 +1158,6 @@ function wrapUp() {
 		if ((Date.parse(LAST_UPDATED) < Date.parse(cacheDate)) || LAST_UPDATED === null) {
 			/** Make sure to set the updated date so we know when to do a full refresh */
 			GM_log(logHeader + 'Setting current date as update date.');
-			//localStorage.setItem(keyStorageUpdated, new Date());
 			GM_setValue(keyStorageUpdated, new Date());
 		}
 
