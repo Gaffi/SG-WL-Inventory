@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		SteamGifts Library Checker
 // @namespace	https://github.com/Gaffi/SG-WL-Inventory
-// @version		0.13
+// @version		0.14
 // @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author		Gaffi
 // icon
@@ -22,7 +22,7 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.13;
+var cacheVersion = 0.14;
 var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"users":[]}');
 var apiKey = null;
 var appInput = null;
@@ -32,6 +32,7 @@ var countToCheck = 0;
 var userPages = 0;
 var gameTitle = null;
 var libraryDiv;
+var libraryDivOutput;
 var urlWhitelist = 'https://www.steamgifts.com/account/manage/whitelist';
 var urlGroup = 'www.steamgifts.com/group/';
 var urlSteamApp = 'store.steampowered.com/app/';
@@ -710,6 +711,9 @@ function injectDlgStyle() {
 		"	margin-top: -5px;",
 		"	opacity: 0.7;",
 		"}",
+		"#SGLCdlg-progress {",
+		"   width: 300px;",
+		"}",
 		".SGLCdlg-button{",
 		"	background-color: #fff;",
 		"	border: 2px solid #333;",
@@ -777,11 +781,16 @@ function injectInterfaceSteam() {
 	libraryDiv.id = "whitelist_ownership_checker";
 	libraryDiv.className = 'btnv6_blue_hoverfade btn_medium';
 	libraryDiv.innerHTML = "<span>SG Check</span>";
+	libraryDivOutput = document.createElement("DIV");
+	libraryDivOutput.id = "whitelist_ownership_output";
+	libraryDivOutput.className = 'btnv6_blue_hoverfade btn_medium';
+	libraryDivOutput.innerHTML = "<span>Results</span>";
 
 	var libraryExtraDiv = document.createElement("DIV");
 	libraryExtraDiv.className = 'apphub_OtherSiteInfo';
 	libraryExtraDiv.style = 'margin-right:0.2em';
 	libraryExtraDiv.appendChild(libraryDiv);
+	libraryExtraDiv.appendChild(libraryDivOutput);
 	refParent.insertBefore(libraryExtraDiv, refTarget);
 	document.getElementById('whitelist_ownership_checker').addEventListener('click', startCheck, false);
 
@@ -791,10 +800,13 @@ function injectInterfaceSteam() {
 	if (curURL.indexOf('?') > 0) {
 		appInput = curURL.slice(curURL.lastIndexOf('/',curURL.lastIndexOf('?')-2)+1,curURL.lastIndexOf('/'));
 	} else {
+		var re = new RegExp("[0-9]{6}");
+		appInput = re.exec(curURL)[0];
+				
 		if (curURL.lastIndexOf('/')+1 != curURL.length) {
 			curURL += '/';
 		}
-		appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
+		//appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
 	}
 	getUserCounts();
 	GM_log(logHeader + 'Library checking button loaded without errors.');
@@ -953,21 +965,32 @@ function processCount(hasGame) {
 		}
 	}
 
-	if (whichPage === 0) {
-		libraryDiv.innerHTML = "<span>Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + "%</span>";
-	} else {
-		var dlgProgress = document.getElementById('SGLCdlg-progress');
-		dlgProgress.setAttribute('style','display:block;float:right;');
-		if (whichCheck === 0) {
-			dlgProgress.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Checking libraries: " + (100*totalScanned/countToCheck).toFixed(1) + '%</span>';
-		} else {
-			dlgProgress.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i> Checking wishlists: " + (100*totalScanned/countToCheck).toFixed(1) + '%</span>';
-		}
-	}
-
 	if (totalScanned >= countToCheck) {
 		GM_log(logHeader + 'Wrapping up... If this is an early termination, async calls may post multiple times.');
 		wrapUp();
+	}
+	
+	updateCompletionPercent();
+}
+
+/**
+ * Updates the current status of the running process.
+ */
+function updateCompletionPercent(){
+	var repPercent = (100*totalScanned/countToCheck).toFixed(1);
+	
+	if (whichPage === 0) {
+		libraryDiv.innerHTML = "<span>Scanning: " + repPercent + "% (" + totalHave + " have out of " + totalScanned + " scanned so far)</span>";
+	} else {
+		var repCheckType = "";
+		var dlgProgress = document.getElementById('SGLCdlg-progress');
+		dlgProgress.setAttribute('style','display:block;float:right;');
+		if (whichCheck === 0) {
+			repCheckType = "own"
+		} else {
+			repCheckType = "want";
+		}
+		dlgProgress.innerHTML = "<span><i class='fa fa-arrow-circle-right'></i>Scanning " + repPercent + "%<p>(" + totalHave + " " + repCheckType + " out of " + totalScanned + " scanned so far)</span>";
 	}
 }
 
@@ -1200,7 +1223,7 @@ function wrapUp() {
 		if (countToCheck > 0) {
 			GM_log(logHeader + 'Good user list count, normal output.');
 			if (whichPage === 0) {
-				libraryDiv.innerHTML = "<span>SG♥: " + totalHave + "/" + totalScanned + " (" + Number((100*totalHave/totalScanned).toFixed(2)) + "%)</span>";
+				libraryDivOutput.innerHTML = "<span>SG♥: " + totalHave + "/" + totalScanned + " (" + Number((100*totalHave/totalScanned).toFixed(2)) + "%)</span>";
 			} else {
 				document.getElementById('SGLCdlg-GameName').value = gameTitle;
 				document.getElementById('SGLCdlg-progress').setAttribute('style','display:none;');
