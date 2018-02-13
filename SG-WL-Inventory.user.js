@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		SteamGifts Library Checker
 // @namespace	https://github.com/Gaffi/SG-WL-Inventory
-// @version		0.14
+// @version		0.15
 // @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author		Gaffi
 // icon
@@ -10,7 +10,7 @@
 // @supportURL	https://www.steamgifts.com/discussion/HipoH/
 // @match		https://www.steamgifts.com/account/manage/whitelist*
 // @match		https://www.steamgifts.com/group/*
-// @match		http://store.steampowered.com/app/*
+// @match		https://store.steampowered.com/app/*
 // @grant		GM_xmlhttpRequest
 // @grant		GM_setValue
 // @grant		GM_getValue
@@ -22,8 +22,8 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.14;
-var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"users":[]}');
+var cacheVersion = 0.15;
+var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"userData":[]}');
 var apiKey = null;
 var appInput = null;
 var totalScanned = 0;
@@ -172,13 +172,13 @@ function checkHasGameInData(row, appID) {
 		url: 'https://www.steamgifts.com/user/' + row.getElementsByClassName('table__column__heading')[0].innerHTML,
 		onload: function(response) {
 			// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-			// Asnyc calls keep running, so this check appears mutliple times in the code.
+			// Asnyc calls keep running, so this check appears multiple times in the code.
 			if (countToCheck > 0 ) {
 				var tempElem = document.createElement("div");
 				tempElem.style.display = "none";
 				tempElem.innerHTML = response.responseText;
 				var steamIDdivhtml = tempElem.getElementsByClassName("sidebar__shortcut-inner-wrap")[0].innerHTML;
-				var searchString1 = 'href="http://steamcommunity.com/profiles/';
+				var searchString1 = 'href="https://steamcommunity.com/profiles/';
 				var searchString2 = '" data-tooltip=';
 				var steamID = steamIDdivhtml.slice(steamIDdivhtml.indexOf(searchString1)+searchString1.length,steamIDdivhtml.indexOf(searchString2));
 				if (!gameTitle) {
@@ -233,7 +233,7 @@ function checkHasGameInData(row, appID) {
  */
 function checkSteamUserLibrary(steamID, appID) {
 	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	// Asnyc calls keep running, so this check appears multiple times in the code.
 	// apiKey check here plays a similar role.
 	if (apiKey && countToCheck > 0 && steamID) {
 		var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
@@ -279,7 +279,7 @@ function checkSteamUserLibrary(steamID, appID) {
  */
 function checkSteamUserWishlist(steamID, appID) {
 	if (steamID && appID) {
-		var link = 'http://steamcommunity.com/profiles/' + steamID + '/wishlist';
+		var link = 'https://steamcommunity.com/profiles/' + steamID + '/wishlist';
 		GM_xmlhttpRequest({
 			method: "GET",
 			url: link,
@@ -465,7 +465,7 @@ function getUserRows(curHTML) {
  * @param {Number} appID - Steam game ID to check ownership of
  */
 function importJSONSteamGameDetail(appID) {
-	var link = "http://store.steampowered.com/api/appdetails?appids="+appID;
+	var link = "https://store.steampowered.com/api/appdetails?appids="+appID;
 	GM_log(logHeader + 'Checking store page [' + link + '] for game details.');
 	var jsonFile;
 	GM_xmlhttpRequest ({
@@ -769,7 +769,7 @@ function injectDlgStyle() {
 
 /**
  * Adds button to Steam store to run checking process
- * Button placement taken from VonRaven at https://www.steamgifts.com/go/comment/MU3ojjL, http://pastebin.com/kRKv53uv
+ * Button placement taken from VonRaven at https://www.steamgifts.com/go/comment/MU3ojjL, https://pastebin.com/kRKv53uv
  */
 function injectInterfaceSteam() {
 	var refTarget, refParent;
@@ -947,7 +947,7 @@ function locateUserData() {
  */
 function processCount(hasGame) {
 	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	// Asnyc calls keep running, so this check appears multiple times in the code.
 	if (countToCheck > 0) {
 		totalScanned += 1;
 		GM_log(logHeader + "Processing " + totalScanned + " out of " + countToCheck + " total users");
@@ -1001,7 +1001,7 @@ function updateCompletionPercent(){
  */
 function readAllUserPages(currentURL, currentPage) {
 	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	// Asnyc calls keep running, so this check appears multiple times in the code.
 	if (countToCheck > 0) {
 		var newPage = parseInt(currentPage);
 		var checkURL = currentURL + currentPage;
@@ -1219,7 +1219,7 @@ function wrapUp() {
 		}
 
 		// If countToCheck == 0, then we have no user list, or we want to terminate the script.
-		// Asnyc calls keep running, so this check appears mutliple times in the code.
+		// Asnyc calls keep running, so this check appears multiple times in the code.
 		if (countToCheck > 0) {
 			GM_log(logHeader + 'Good user list count, normal output.');
 			if (whichPage === 0) {
