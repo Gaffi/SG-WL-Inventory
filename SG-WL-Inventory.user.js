@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		SteamGifts Library Checker
 // @namespace	https://github.com/Gaffi/SG-WL-Inventory
-// @version		0.16
+// @version		0.17
 // @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author		Gaffi
 // icon
@@ -22,8 +22,8 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.16;
-var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"users":[]}');
+var cacheVersion = 0.17;
+var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"userData":[]}');
 var apiKey = null;
 var appInput = null;
 var totalScanned = 0;
@@ -72,12 +72,12 @@ if (!Array.prototype.indexOf) {
 
 apiKey = GM_getValue('SGLCdlg-APIKey');
 
-if (window.location.href.indexOf(urlSteamApp)>0) {
+if (window.location.href.indexOf(urlSteamApp) > 0) {
 	GM_log(logHeader + 'SteamGifts Library Checker Injecting Steam Store');
 	whichPage = 0;
 	injectInterfaceSteam();
 } else {
-	if (window.location.href.indexOf(urlGroup)>0) {
+	if (window.location.href.indexOf(urlGroup) > 0) {
 		GM_log(logHeader + 'SteamGifts Library Checker Injecting SteamGifts Group Page');
 		whichPage = 1;
 	} else {
@@ -97,8 +97,8 @@ if (window.location.href.indexOf(urlSteamApp)>0) {
 function addUserToJSONOwnership(newJSON, steamID) {
 	GM_log(logHeader + "Checking to see if we need to add user " + steamID + " to stored data pre-load (JSON for ownership).");
 	var alreadyHave = false;
-	for (var i = 0; i < USER_OWN_DATA.users.length; i++) {
-		if (USER_OWN_DATA.users[i].userID == steamID) {
+	for (var i = 0; i < USER_OWN_DATA.userData.length; i++) {
+		if (USER_OWN_DATA.userData[i].userID == steamID) {
 			alreadyHave = true;
 			GM_log(logHeader + "We already have data for this user, so skipping...");
 			break;
@@ -111,10 +111,10 @@ function addUserToJSONOwnership(newJSON, steamID) {
 			for(var j = 0; j < newJSON.response.games.length; j++) {
 				tempJSON.userData.push(newJSON.response.games[j].appid);
 			}
-			USER_OWN_DATA.users.push(tempJSON);
+			USER_OWN_DATA.userData.push(tempJSON);
 		} else {
 			GM_log(logHeader + "No data for " + steamID + ", with no games to add (possibly private profile). Adding to pre-load (JSON).");
-			USER_OWN_DATA.users.push(JSON.parse('{"userID":' + steamID + ',"userData":[]}'));
+			USER_OWN_DATA.userData.push(JSON.parse('{"userID":' + steamID + ',"userData":[]}'));
 		}
 	}
 }
@@ -127,8 +127,9 @@ function addUserToJSONOwnership(newJSON, steamID) {
 function addUserToJSONWishlist(wishlistHTML, steamID) {
 	GM_log(logHeader + "Checking to see if we need to add user " + steamID + " to stored data pre-load (JSON for wishlist).");
 	var alreadyHave = false;
-	for (var i = 0; i < USER_WISH_DATA.users.length; i++) {
-		if (USER_WISH_DATA.users[i].userID == steamID) {
+	
+	for (var i = 0; i < USER_WISH_DATA.userData.length; i++) {
+		if (USER_WISH_DATA.userData[i].userID == steamID) {
 			alreadyHave = true;
 			GM_log(logHeader + "We already have data for this user, so skipping...");
 			break;
@@ -139,25 +140,18 @@ function addUserToJSONWishlist(wishlistHTML, steamID) {
 		GM_log(logHeader + "We do not have data for this user, so adding...");
 		// First check is YOU/user running the script, second check is a normal user.
 		// Steam allows sorting of your own wishlist, so the div class is different.
-		var re1 = /div class="wishlistRow sortableRow" id="game_(\d+)"/g;
-		var re2 = /div class="wishlistRow " id="game_(\d+)"/g;
+		var re = /"appid":(\d+),"priority"/g;
 		var result = '';
 		var resultJSON = JSON.parse('{"userID":' + steamID + ',"userData":[]}');
 
 		do {
-			result = re1.exec(wishlistHTML);
+			result = re.exec(wishlistHTML);
 			if (result) {
 				resultJSON.userData.push(result[1]);
 			}
 		} while (result);
-
-		do {
-			result = re2.exec(wishlistHTML);
-			if (result) {
-				resultJSON.userData.push(result[1]);
-			}
-		} while (result);
-		USER_WISH_DATA.users.push(resultJSON);
+		
+		USER_WISH_DATA.userData.push(resultJSON);
 	}
 }
 
@@ -172,7 +166,7 @@ function checkHasGameInData(row, appID) {
 		url: 'https://www.steamgifts.com/user/' + row.getElementsByClassName('table__column__heading')[0].innerHTML,
 		onload: function(response) {
 			// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-			// Asnyc calls keep running, so this check appears mutliple times in the code.
+			// Asnyc calls keep running, so this check appears multiple times in the code.
 			if (countToCheck > 0 ) {
 				var tempElem = document.createElement("div");
 				tempElem.style.display = "none";
@@ -190,16 +184,16 @@ function checkHasGameInData(row, appID) {
 					var i;
 					switch (whichCheck) {
 						case 0:
-							for (i = 0; i < USER_OWN_DATA.users.length; i++) {
-								if (USER_OWN_DATA.users[i].userID == steamID) {
+							for (i = 0; i < USER_OWN_DATA.userData.length; i++) {
+								if (USER_OWN_DATA.userData[i].userID == steamID) {
 									haveUser = true;
 									break;
 								}
 							}
 							break;
 						case 1:
-							for (i = 0; i < USER_WISH_DATA.users.length; i++) {
-								if (USER_WISH_DATA.users[i].userID == steamID) {
+							for (i = 0; i < USER_WISH_DATA.userData.length; i++) {
+								if (USER_WISH_DATA.userData[i].userID == steamID) {
 									haveUser = true;
 									break;
 								}
@@ -233,7 +227,7 @@ function checkHasGameInData(row, appID) {
  */
 function checkSteamUserLibrary(steamID, appID) {
 	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	// Asnyc calls keep running, so this check appears multiple times in the code.
 	// apiKey check here plays a similar role.
 	if (apiKey && countToCheck > 0 && steamID) {
 		var link = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=" + apiKey + '&input_json={"steamid":' + steamID + '}';
@@ -284,7 +278,7 @@ function checkSteamUserWishlist(steamID, appID) {
 			method: "GET",
 			url: link,
 			onload: function(response) {
-				if (response){
+				if (response){					
 					if (response.responseText) {
 						addUserToJSONWishlist(response.responseText, steamID);
 						readStoredUserData(steamID, appID);
@@ -947,7 +941,7 @@ function locateUserData() {
  */
 function processCount(hasGame) {
 	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	// Asnyc calls keep running, so this check appears multiple times in the code.
 	if (countToCheck > 0) {
 		totalScanned += 1;
 		GM_log(logHeader + "Processing " + totalScanned + " out of " + countToCheck + " total users");
@@ -1001,7 +995,7 @@ function updateCompletionPercent(){
  */
 function readAllUserPages(currentURL, currentPage) {
 	// If countToCheck = 0, then we have no whitelist, or we want to terminate the script.
-	// Asnyc calls keep running, so this check appears mutliple times in the code.
+	// Asnyc calls keep running, so this check appears multiple times in the code.
 	if (countToCheck > 0) {
 		var newPage = parseInt(currentPage);
 		var checkURL = currentURL + currentPage;
@@ -1046,11 +1040,11 @@ function readStoredUserData(steamID, appID){
 	var userVerb = '';
 	switch (whichCheck) {
 		case 0:
-			userData = findUserInJSON(USER_OWN_DATA.users, steamID);
+			userData = findUserInJSON(USER_OWN_DATA.userData, steamID);
 			userVerb = ' owns ';
 			break;
 		case 1:
-			userData = findUserInJSON(USER_WISH_DATA.users, steamID);
+			userData = findUserInJSON(USER_WISH_DATA.userData, steamID);
 			userVerb = ' wants ';
 			break;
 	}
@@ -1219,7 +1213,7 @@ function wrapUp() {
 		}
 
 		// If countToCheck == 0, then we have no user list, or we want to terminate the script.
-		// Asnyc calls keep running, so this check appears mutliple times in the code.
+		// Asnyc calls keep running, so this check appears multiple times in the code.
 		if (countToCheck > 0) {
 			GM_log(logHeader + 'Good user list count, normal output.');
 			if (whichPage === 0) {
