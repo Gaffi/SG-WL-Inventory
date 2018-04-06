@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		SteamGifts Library Checker
 // @namespace	https://github.com/Gaffi/SG-WL-Inventory
-// @version		0.17
+// @version		0.18
 // @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author		Gaffi
 // icon
@@ -22,11 +22,12 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.17;
+var cacheVersion = 0.18;
 var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"userData":[]}');
 var apiKey = null;
 var appInput = null;
 var totalScanned = 0;
+var inactive = 0;
 var totalHave = 0;
 var countToCheck = 0;
 var userPages = 0;
@@ -172,7 +173,7 @@ function checkHasGameInData(row, appID) {
 				tempElem.style.display = "none";
 				tempElem.innerHTML = response.responseText;
 				var steamIDdivhtml = tempElem.getElementsByClassName("sidebar__shortcut-inner-wrap")[0].innerHTML;
-				var searchString1 = 'href="http://steamcommunity.com/profiles/';
+				var searchString1 = 'href="https://steamcommunity.com/profiles/';
 				var searchString2 = '" data-tooltip=';
 				var steamID = steamIDdivhtml.slice(steamIDdivhtml.indexOf(searchString1)+searchString1.length,steamIDdivhtml.indexOf(searchString2));
 				if (!gameTitle) {
@@ -273,7 +274,7 @@ function checkSteamUserLibrary(steamID, appID) {
  */
 function checkSteamUserWishlist(steamID, appID) {
 	if (steamID && appID) {
-		var link = 'http://steamcommunity.com/profiles/' + steamID + '/wishlist';
+		var link = 'https://steamcommunity.com/profiles/' + steamID + '/wishlist';
 		GM_xmlhttpRequest({
 			method: "GET",
 			url: link,
@@ -459,7 +460,7 @@ function getUserRows(curHTML) {
  * @param {Number} appID - Steam game ID to check ownership of
  */
 function importJSONSteamGameDetail(appID) {
-	var link = "http://store.steampowered.com/api/appdetails?appids="+appID;
+	var link = "https://store.steampowered.com/api/appdetails?appids="+appID;
 	GM_log(logHeader + 'Checking store page [' + link + '] for game details.');
 	var jsonFile;
 	GM_xmlhttpRequest ({
@@ -907,7 +908,7 @@ function locateUserData() {
 					var indexStats = window.location.href.indexOf('/stats') ;
 					var indexWishlist = window.location.href.indexOf('/wishlist') ;
 					if (indexUsers > 0) {
-						groupURL = window.location.href + '/search?page=';
+						groupURL = window.location.href.slice(0,indexUsers) + '/users/search?page=';
 					} else if (indexStats > 0) {
 						groupURL = window.location.href.slice(0,indexStats) + '/users/search?page=';
 					} else if (indexWishlist > 0) {
@@ -1014,7 +1015,12 @@ function readAllUserPages(currentURL, currentPage) {
 							var rows = getUserRows(response.responseText);
 							var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
 							for (var i = 0; i < rows.length; i++) {
-								checkHasGameInData(rows[i], appID);
+								if( rows[i].className == "table__row-inner-wrap is-faded"){
+									inactive+=1;
+									processCount(2);
+									}
+								else
+									checkHasGameInData(rows[i], appID);
 							}
 						}
 						GM_log(logHeader + 'User page loaded. Reading user data...');
@@ -1048,11 +1054,15 @@ function readStoredUserData(steamID, appID){
 			userVerb = ' wants ';
 			break;
 	}
+	var zx=0;
+	if(totalHave>9)
+		zx='';
 
 	if (userData) {
 		if (findGameInJSON(userData, appID, steamID)) {
 			GM_log(logHeader + 'User ' + steamID + userVerb + 'game ' + appID + ' = True');
 			processCount(1);
+						console.log('></a> <br> ' + zx + (totalHave+0) + ' - <a href=https://steamcommunity.com/profiles/' + steamID + ' target="_blank" >https://steamcommunity.com/profiles/' + steamID + '</a> <a' );
 		} else {
 			GM_log(logHeader + 'User ' + steamID + userVerb + 'game ' + appID + ' = False');
 			processCount(0);
@@ -1239,8 +1249,14 @@ function wrapUp() {
 				document.getElementById('SGLCdlg-checkbuttonown').disabled = false;
 				document.getElementById('SGLCdlg-checkbuttonwant').disabled = false;
 				document.getElementById('SGLCdlg-cachebutton').disabled = false;
+				
+				if( inactive > 0 )
+					totalScanned -= inactive;
 
 				document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + (totalScanned == 1 ? ' user ' : ' users ') + 'in ' + groupType + ', ' + totalHave + ' ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" in their ' + checkType + ' (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
+				
+				if( inactive > 0 )
+					document.getElementById('SGLCdlg-output').value += "\r\n" + inactive + " inactive users ignored.";
 			}
 		} else {
 			GM_log(logHeader + 'Whitelist count = 0, null output.');
