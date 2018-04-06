@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		SteamGifts Library Checker
 // @namespace	https://github.com/Gaffi/SG-WL-Inventory
-// @version		0.18
+// @version		0.19
 // @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author		Gaffi
 // icon
@@ -22,7 +22,7 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.18;
+var cacheVersion = 0.19;
 var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"userData":[]}');
 var apiKey = null;
 var appInput = null;
@@ -1054,15 +1054,11 @@ function readStoredUserData(steamID, appID){
 			userVerb = ' wants ';
 			break;
 	}
-	var zx=0;
-	if(totalHave>9)
-		zx='';
 
 	if (userData) {
 		if (findGameInJSON(userData, appID, steamID)) {
 			GM_log(logHeader + 'User ' + steamID + userVerb + 'game ' + appID + ' = True');
 			processCount(1);
-						console.log('></a> <br> ' + zx + (totalHave+0) + ' - <a href=https://steamcommunity.com/profiles/' + steamID + ' target="_blank" >https://steamcommunity.com/profiles/' + steamID + '</a> <a' );
 		} else {
 			GM_log(logHeader + 'User ' + steamID + userVerb + 'game ' + appID + ' = False');
 			processCount(0);
