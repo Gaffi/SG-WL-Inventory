@@ -1165,6 +1165,7 @@ function startCheck() {
 		gameTitle = null;
 		totalScanned = 0;
 		totalHave = 0;
+		inactive = 0;
 
 		locateUserData();
 	}
