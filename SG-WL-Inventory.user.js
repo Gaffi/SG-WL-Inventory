@@ -10,7 +10,7 @@
 // @supportURL	https://www.steamgifts.com/discussion/HipoH/
 // @match		https://www.steamgifts.com/account/manage/whitelist*
 // @match		https://www.steamgifts.com/group/*
-// @match		https://store.steampowered.com/app/*
+// @match		http*://store.steampowered.com/app/*
 // @grant		GM_xmlhttpRequest
 // @grant		GM_setValue
 // @grant		GM_getValue
