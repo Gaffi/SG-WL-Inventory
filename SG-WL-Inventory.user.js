@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		SteamGifts Library Checker
 // @namespace	https://github.com/Gaffi/SG-WL-Inventory
-// @version		0.19
+// @version		0.20
 // @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author		Gaffi
 // icon
@@ -10,7 +10,7 @@
 // @supportURL	https://www.steamgifts.com/discussion/HipoH/
 // @match		https://www.steamgifts.com/account/manage/whitelist*
 // @match		https://www.steamgifts.com/group/*
-// @match		http://store.steampowered.com/app/*
+// @match		https://store.steampowered.com/app/*
 // @grant		GM_xmlhttpRequest
 // @grant		GM_setValue
 // @grant		GM_getValue
@@ -22,7 +22,7 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.19;
+var cacheVersion = 0.20;
 var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"userData":[]}');
 var apiKey = null;
 var appInput = null;
