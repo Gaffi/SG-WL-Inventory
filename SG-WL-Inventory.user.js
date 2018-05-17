@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		SteamGifts Library Checker
 // @namespace	https://github.com/Gaffi/SG-WL-Inventory
-// @version		0.21
+// @version		0.22
 // @description	Scans your whitelist for a particular game to see how many on your list own it. Many props to Sighery for helping me with the API business and for creating the code I butchered to make this.
 // @author		Gaffi
 // icon
@@ -22,7 +22,7 @@
 // @connect		steamcommunity.com
 // ==/UserScript==
 
-var cacheVersion = 0.21;
+var cacheVersion = 0.22;
 var newJSONTemplate = JSON.parse('{"version":' + cacheVersion + ',"userData":[]}');
 var apiKey = null;
 var appInput = null;
@@ -63,7 +63,7 @@ if (!Array.prototype.indexOf) {
 	} else if (fromIndex < 0) {
 		fromIndex = Math.max(0, this.length + fromIndex);
 	}
-	for (var i = fromIndex, j = this.length; i < j; i++) {
+	for (let i = fromIndex, j = this.length; i < j; i++) {
 		if (this[i] === obj)
 			return i;
 	}
@@ -98,7 +98,7 @@ if (window.location.href.indexOf(urlSteamApp) > 0) {
 function addUserToJSONOwnership(newJSON, steamID) {
 	GM_log(logHeader + "Checking to see if we need to add user " + steamID + " to stored data pre-load (JSON for ownership).");
 	var alreadyHave = false;
-	for (var i = 0; i < USER_OWN_DATA.userData.length; i++) {
+	for (let i = 0; i < USER_OWN_DATA.userData.length; i++) {
 		if (USER_OWN_DATA.userData[i].userID == steamID) {
 			alreadyHave = true;
 			GM_log(logHeader + "We already have data for this user, so skipping...");
@@ -128,8 +128,8 @@ function addUserToJSONOwnership(newJSON, steamID) {
 function addUserToJSONWishlist(wishlistHTML, steamID) {
 	GM_log(logHeader + "Checking to see if we need to add user " + steamID + " to stored data pre-load (JSON for wishlist).");
 	var alreadyHave = false;
-	
-	for (var i = 0; i < USER_WISH_DATA.userData.length; i++) {
+
+	for (let i = 0; i < USER_WISH_DATA.userData.length; i++) {
 		if (USER_WISH_DATA.userData[i].userID == steamID) {
 			alreadyHave = true;
 			GM_log(logHeader + "We already have data for this user, so skipping...");
@@ -151,7 +151,7 @@ function addUserToJSONWishlist(wishlistHTML, steamID) {
 				resultJSON.userData.push(result[1]);
 			}
 		} while (result);
-		
+
 		USER_WISH_DATA.userData.push(resultJSON);
 	}
 }
@@ -180,12 +180,11 @@ function checkHasGameInData(row, appID) {
 					importJSONSteamGameDetail(appID);
 				}
 				if (steamID.length > 0) {
-					GM_log(logHeader + 'Checking stored data for ' + steamID);
+					//GM_log(logHeader + 'Checking stored data for ' + steamID);
 					var haveUser = false;
-					var i;
 					switch (whichCheck) {
 						case 0:
-							for (i = 0; i < USER_OWN_DATA.userData.length; i++) {
+							for (let i = 0; i < USER_OWN_DATA.userData.length; i++) {
 								if (USER_OWN_DATA.userData[i].userID == steamID) {
 									haveUser = true;
 									break;
@@ -193,7 +192,7 @@ function checkHasGameInData(row, appID) {
 							}
 							break;
 						case 1:
-							for (i = 0; i < USER_WISH_DATA.userData.length; i++) {
+							for (let i = 0; i < USER_WISH_DATA.userData.length; i++) {
 								if (USER_WISH_DATA.userData[i].userID == steamID) {
 									haveUser = true;
 									break;
@@ -201,6 +200,7 @@ function checkHasGameInData(row, appID) {
 							}
 							break;
 					}
+
 					if (!haveUser) {
 						GM_log(logHeader + 'Do not have user stored - checking API data for ' + steamID);
 						switch (whichCheck) {
@@ -279,7 +279,7 @@ function checkSteamUserWishlist(steamID, appID) {
 			method: "GET",
 			url: link,
 			onload: function(response) {
-				if (response){					
+				if (response){
 					if (response.responseText) {
 						addUserToJSONWishlist(response.responseText, steamID);
 						readStoredUserData(steamID, appID);
@@ -363,7 +363,7 @@ function clickButtonWant() {
 function findUserInJSON(JSONArray, steamID) {
 	var returnJSON = null;
 	GM_log(logHeader + 'Scanning stored user data for user ' + steamID);
-	for (var i = 0; i < JSONArray.length; i++) {
+	for (let i = 0; i < JSONArray.length; i++) {
 		if (JSONArray[i].userID == steamID) {
 			GM_log(logHeader + 'Found user ' + steamID + ' in stored data.');
 			returnJSON = JSONArray[i].userData;
@@ -389,7 +389,7 @@ function findGameInJSON(JSONArray, appID, steamID) {
 		canReadGames = false;
 	}
 	if (canReadGames) {
-		for (var i = 0; i < JSONArray.length; i++) {
+		for (let i = 0; i < JSONArray.length; i++) {
 			if (JSONArray[i] == appID) {
 				hasGame = true;
 				return hasGame;
@@ -797,11 +797,10 @@ function injectInterfaceSteam() {
 	} else {
 		var re = new RegExp("[0-9]{6}");
 		appInput = re.exec(curURL)[0];
-				
+
 		if (curURL.lastIndexOf('/')+1 != curURL.length) {
 			curURL += '/';
 		}
-		//appInput = curURL.slice(curURL.lastIndexOf('/',curURL.length-2)+1,curURL.lastIndexOf('/',curURL.length));
 	}
 	getUserCounts();
 	GM_log(logHeader + 'Library checking button loaded without errors.');
@@ -945,7 +944,7 @@ function processCount(hasGame) {
 	// Asnyc calls keep running, so this check appears multiple times in the code.
 	if (countToCheck > 0) {
 		totalScanned += 1;
-		GM_log(logHeader + "Processing " + totalScanned + " out of " + countToCheck + " total users");
+		//GM_log(logHeader + "Processing " + totalScanned + " out of " + countToCheck + " total users");
 		switch (hasGame) {
 			case 0:
 				//Does not have game.
@@ -964,7 +963,7 @@ function processCount(hasGame) {
 		GM_log(logHeader + 'Wrapping up... If this is an early termination, async calls may post multiple times.');
 		wrapUp();
 	}
-	
+
 	updateCompletionPercent();
 }
 
@@ -973,7 +972,7 @@ function processCount(hasGame) {
  */
 function updateCompletionPercent(){
 	var repPercent = (100*totalScanned/countToCheck).toFixed(1);
-	
+
 	if (whichPage === 0) {
 		libraryDiv.innerHTML = "<span>Scanning: " + repPercent + "% (" + totalHave + " have out of " + totalScanned + " scanned so far)</span>";
 	} else {
@@ -981,7 +980,7 @@ function updateCompletionPercent(){
 		var dlgProgress = document.getElementById('SGLCdlg-progress');
 		dlgProgress.setAttribute('style','display:block;float:right;');
 		if (whichCheck === 0) {
-			repCheckType = "own"
+			repCheckType = "own";
 		} else {
 			repCheckType = "want";
 		}
@@ -1014,7 +1013,8 @@ function readAllUserPages(currentURL, currentPage) {
 						if (apiKey) {
 							var rows = getUserRows(response.responseText);
 							var appID = appInput.split(','); // Right now, only works with single appID. Probably will stay this way.
-							for (var i = 0; i < rows.length; i++) {
+
+							for (let i = 0; i < rows.length; i++) {
 								if( rows[i].className == "table__row-inner-wrap is-faded"){
 									inactive+=1;
 									processCount(2);
@@ -1246,12 +1246,12 @@ function wrapUp() {
 				document.getElementById('SGLCdlg-checkbuttonown').disabled = false;
 				document.getElementById('SGLCdlg-checkbuttonwant').disabled = false;
 				document.getElementById('SGLCdlg-cachebutton').disabled = false;
-				
+
 				if( inactive > 0 )
 					totalScanned -= inactive;
 
 				document.getElementById('SGLCdlg-output').value = 'Out of ' + totalScanned + (totalScanned == 1 ? ' user ' : ' users ') + 'in ' + groupType + ', ' + totalHave + ' ' + (totalHave == 1 ? 'has "' : 'have "') + gameTitle + '" in their ' + checkType + ' (' + Number((100*totalHave/totalScanned).toFixed(2)) + '%).';
-				
+
 				if( inactive > 0 )
 					document.getElementById('SGLCdlg-output').value += "\r\n" + inactive + " inactive users ignored.";
 			}
