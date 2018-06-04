@@ -906,12 +906,15 @@ function locateUserData() {
 					var indexUsers = window.location.href.indexOf('/users');
 					var indexStats = window.location.href.indexOf('/stats') ;
 					var indexWishlist = window.location.href.indexOf('/wishlist') ;
+					var indexSearch = window.location.href.indexOf('/search?q=') ;
 					if (indexUsers > 0) {
 						groupURL = window.location.href.slice(0,indexUsers) + '/users/search?page=';
 					} else if (indexStats > 0) {
 						groupURL = window.location.href.slice(0,indexStats) + '/users/search?page=';
 					} else if (indexWishlist > 0) {
 						groupURL = window.location.href.slice(0,indexWishlist) + '/users/search?page=';
+					} else if (indexSearch > 0) {
+						groupURL = window.location.href.slice(0,indexSearch) + '/users/search?page=';
 					} else {
 						groupURL = window.location.href + '/users/search?page=';
 					}
